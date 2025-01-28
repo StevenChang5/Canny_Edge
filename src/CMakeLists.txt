@@ -1,0 +1,8 @@
+cmake_minimum_required(VERSION 3.31.4)
+project(CannyEdge)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED True)
+find_package(OpenCV REQUIRED)
+include_directories(${OpenCV_INCLUDE_DIRECTORIES})
+add_executable(Main main.cpp)
+target_link_libraries(Main ${OpenCV_LIBS})
