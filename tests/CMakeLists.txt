@@ -6,6 +6,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(googletest)
 enable_testing()
 
+include_directories(${OpenCV_INCLUDE_DIRECTORIES})
+
 add_executable(
   test_utils
   test_utils.cpp
@@ -25,6 +27,7 @@ target_link_libraries(
   test_utils
   GTest::gtest_main
   utils
+  ${OpenCV_LIBS}
 )
 
 include(GoogleTest)
