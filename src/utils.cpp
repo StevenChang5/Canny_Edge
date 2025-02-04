@@ -96,11 +96,11 @@ void calculateGradient(short int*& smoothed_img, int rows, int columns, short in
         grad_x[pos] = (2 * smoothed_img[pos+1]) - (2 * smoothed_img[pos]);
         // include row above
         if(r != rows-1){
-            grad_x[pos] += (smoothed_img[((r+1)*columns)+1] - smoothed_img[(r+1)*columns]);
+            grad_x[pos] += (smoothed_img[pos+columns+1] - smoothed_img[pos+columns]);
         }
         // include row below
         if(r != 0){
-            grad_x[pos] += (smoothed_img[((r-1)*columns)+1] - smoothed_img[(r-1)*columns]);
+            grad_x[pos] += (smoothed_img[pos-columns+1] - smoothed_img[pos-columns]);
         }
         // pos and c are both for tracking column, but one tracks actual value in array and other tracks high-level value
         pos++;
@@ -109,10 +109,10 @@ void calculateGradient(short int*& smoothed_img, int rows, int columns, short in
         for(int c = 1; c < columns-1; c++, pos++){
             grad_x[pos] = (2 * smoothed_img[pos+1]) - (2 * smoothed_img[pos-1]);
             if(r != rows-1){
-                grad_x[pos] += (smoothed_img[((r+1)*columns)+1] - smoothed_img[((r+1)*columns)-1]);
+                grad_x[pos] += (smoothed_img[pos+columns+1] - smoothed_img[pos+columns-1]);
             }
             if(r != 0){
-                grad_x[pos] += (smoothed_img[((r-1)*columns)+1] - smoothed_img[((r-1)*columns)-1]);
+                grad_x[pos] += (smoothed_img[pos-columns+1] - smoothed_img[pos-columns-1]);
             }
         }
 
@@ -120,11 +120,11 @@ void calculateGradient(short int*& smoothed_img, int rows, int columns, short in
         grad_x[pos] = (2 * smoothed_img[pos]) - (2 * smoothed_img[pos-1]);
         // include row below
         if(r != rows-1){
-            grad_x[pos] += (smoothed_img[(r+1)*columns] - smoothed_img[((r+1)*columns)-1]);
+            grad_x[pos] += (smoothed_img[pos+columns] - smoothed_img[pos+columns-1]);
         }
         // include row above
         if(r != 0){
-            grad_x[pos] += (smoothed_img[(r-1)*columns] - smoothed_img[((r-1)*columns)-1]);
+            grad_x[pos] += (smoothed_img[pos-columns] - smoothed_img[pos-columns-1]);
         }
     }
 
@@ -149,7 +149,7 @@ void calculateGradient(short int*& smoothed_img, int rows, int columns, short in
                 grad_y[pos] += (smoothed_img[pos+columns+1]-smoothed_img[pos-columns+1]);
             }
             if(c != 0){
-                grad_y[pos] += (smoothed_img[pos+columns+1]-smoothed_img[pos-columns+1]);
+                grad_y[pos] += (smoothed_img[pos+columns-1]-smoothed_img[pos-columns-1]);
             }
         }
 
