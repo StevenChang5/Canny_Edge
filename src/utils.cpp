@@ -85,7 +85,7 @@ void createGaussianKernel(float*& kernel , float sigma, int* window){
 
 // Calculate gradient in the x and y direction
 // Access to pixel (row, column) is given by [row * num_columns + column]
-void calculateGradient(short int*& smoothed_img, int rows, int columns, short int*& grad_x, short int*& grad_y){
+void calculateXYGradient(short int*& smoothed_img, int rows, int columns, short int*& grad_x, short int*& grad_y){
     grad_x = new short int[rows * columns];
     grad_y = new short int[rows * columns];
 
@@ -161,5 +161,12 @@ void calculateGradient(short int*& smoothed_img, int rows, int columns, short in
         if(c != 0){
             grad_y[pos] += (smoothed_img[pos-1]-smoothed_img[pos-columns-1]);
         }
+    }
+}
+
+void approximateGradient(short int*& grad_x, short int*& grad_y, int rows, int columns, short int*& grad){
+    grad = new short int[rows * columns];
+    for(int i = 0; i < (rows*columns); i++){
+        grad[i] = (int)sqrt((grad_x[i] * grad_x[i]) + (grad_y[i] * grad_y[i]));
     }
 }

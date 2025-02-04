@@ -110,7 +110,7 @@ TEST(Gradient, GradientDimensions){
   int columns = 3;
 
   short int* smoothed_img = new short int[9]{1,2,1,2,3,2,3,4,3};
-  calculateGradient(smoothed_img,rows,columns,grad_x,grad_y);
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
 
   Mat x(rows, columns, CV_16S, grad_x);
   EXPECT_EQ(x.rows, rows);
@@ -132,7 +132,7 @@ TEST(Gradient, xOnes){
   int columns = 3;
 
   short int* smoothed_img = new short int[9]{1,1,1,1,1,1,1,1,1};
-  calculateGradient(smoothed_img,rows,columns,grad_x,grad_y);
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
 
   int expected[9]{0,0,0,0,0,0,0,0,0};
 
@@ -153,7 +153,7 @@ TEST(Gradient, yOnes){
   int columns = 3;
 
   short int* smoothed_img = new short int[9]{1,1,1,1,1,1,1,1,1};
-  calculateGradient(smoothed_img,rows,columns,grad_x,grad_y);
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
 
   int expected[9]{0,0,0,0,0,0,0,0,0};
 
@@ -174,7 +174,7 @@ TEST(Gradient, xCorrect){
   int columns = 3;
 
   short int* smoothed_img = new short int[9]{1,2,1,2,3,2,3,4,3};
-  calculateGradient(smoothed_img,rows,columns,grad_x,grad_y);
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
 
   int expected[9]{3,0,-3,4,0,-4,3,0,-3};
 
@@ -194,7 +194,7 @@ TEST(Gradient, yCorrect){
   int columns = 3;
 
   short int* smoothed_img = new short int[9]{1,2,1,2,3,2,3,4,3};
-  calculateGradient(smoothed_img,rows,columns,grad_x,grad_y);
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
 
   int expected[9]{3,4,3,6,8,6,3,4,3};
 
@@ -205,4 +205,41 @@ TEST(Gradient, yCorrect){
   delete[] grad_x;
   delete[] grad_y;
   delete[] smoothed_img;
+}
+
+TEST(ApproximateGradient, GradientDimensions){
+  short int* grad_x = new short int [9]{1,1,1,1,1,1,1,1,1};
+  short int* grad_y = new short int [9]{1,1,1,1,1,1,1,1,1};;
+  int rows = 3;
+  int columns = 3;
+
+  short int* grad;
+  approximateGradient(grad_x, grad_y, rows, columns, grad);
+
+  Mat x(rows, columns, CV_16S, grad);
+  EXPECT_EQ(x.rows, rows);
+  EXPECT_EQ(x.cols, columns);
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] grad;
+}
+
+TEST(ApproximateGradient, GradientCalculation){
+  short int* grad_x = new short int [9]{1,1,1,1,1,1,1,1,1};
+  short int* grad_y = new short int [9]{1,1,1,1,1,1,1,1,1};
+  int rows = 3;
+  int columns = 3;
+
+  short int expectation[9]{1,1,1,1,1,1,1,1,1};
+  short int* grad;
+  approximateGradient(grad_x, grad_y, rows, columns, grad);
+
+  for(int i = 0; i < (rows * columns); i++){
+    EXPECT_EQ(fabs(grad[i]-expectation[i]) < FLT_EPSILON, true);
+  }
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] grad;
 }
