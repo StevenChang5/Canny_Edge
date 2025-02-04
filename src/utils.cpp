@@ -82,3 +82,91 @@ void createGaussianKernel(float*& kernel , float sigma, int* window){
         kernel[i] /= sum;
     }
 }
+
+// Calculate gradient in the x and y direction
+// Access to pixel (row, column) is given by [row * num_columns + column]
+void calculateXYGradient(short int*& smoothed_img, int rows, int columns, short int*& grad_x, short int*& grad_y){
+    grad_x = new short int[rows * columns];
+    grad_y = new short int[rows * columns];
+
+    // x derivative
+    for(int r = 0; r < rows; r++){
+        int pos = r * columns;
+        // Leftmost column, all rows; pad out of bounds with border values
+        grad_x[pos] = (2 * smoothed_img[pos+1]) - (2 * smoothed_img[pos]);
+        // include row above
+        if(r != rows-1){
+            grad_x[pos] += (smoothed_img[pos+columns+1] - smoothed_img[pos+columns]);
+        }
+        // include row below
+        if(r != 0){
+            grad_x[pos] += (smoothed_img[pos-columns+1] - smoothed_img[pos-columns]);
+        }
+        // pos and c are both for tracking column, but one tracks actual value in array and other tracks high-level value
+        pos++;
+
+        // Middle, non-border pixels
+        for(int c = 1; c < columns-1; c++, pos++){
+            grad_x[pos] = (2 * smoothed_img[pos+1]) - (2 * smoothed_img[pos-1]);
+            if(r != rows-1){
+                grad_x[pos] += (smoothed_img[pos+columns+1] - smoothed_img[pos+columns-1]);
+            }
+            if(r != 0){
+                grad_x[pos] += (smoothed_img[pos-columns+1] - smoothed_img[pos-columns-1]);
+            }
+        }
+
+        // Rightmost column, all rows; pad out of bounds with border values
+        grad_x[pos] = (2 * smoothed_img[pos]) - (2 * smoothed_img[pos-1]);
+        // include row below
+        if(r != rows-1){
+            grad_x[pos] += (smoothed_img[pos+columns] - smoothed_img[pos+columns-1]);
+        }
+        // include row above
+        if(r != 0){
+            grad_x[pos] += (smoothed_img[pos-columns] - smoothed_img[pos-columns-1]);
+        }
+    }
+
+    // y derivative
+    // Access to pixel (row, column) is given by [row * num_columns + column]
+    for(int c = 0; c < columns; c++){
+        int pos = c;
+        // topmost row, all columns; pad out of bounds with border values
+        grad_y[pos] = (2 * smoothed_img[pos+columns]) - (2 * smoothed_img[pos]);
+        if(c != columns-1){
+            grad_y[pos] += (smoothed_img[pos+columns+1]-smoothed_img[pos+1]);
+        }
+        if(c != 0){
+            grad_y[pos] += (smoothed_img[pos+columns-1]-smoothed_img[pos-1]);
+        }
+        pos += columns;
+
+        // Middle, nonborder pixels
+        for(int r = 1; r < rows-1; r++, pos+=columns){
+            grad_y[pos] = (2*smoothed_img[pos+columns]) - (2*smoothed_img[pos-columns]);
+            if(c != columns-1){
+                grad_y[pos] += (smoothed_img[pos+columns+1]-smoothed_img[pos-columns+1]);
+            }
+            if(c != 0){
+                grad_y[pos] += (smoothed_img[pos+columns-1]-smoothed_img[pos-columns-1]);
+            }
+        }
+
+        // bottommost row, all columns; pad out of bounds with border values
+        grad_y[pos] = (2*smoothed_img[pos]) - (2*smoothed_img[pos-columns]);
+        if(c != columns-1){
+            grad_y[pos] += (smoothed_img[pos+1] - smoothed_img[pos-columns+1]);
+        }
+        if(c != 0){
+            grad_y[pos] += (smoothed_img[pos-1]-smoothed_img[pos-columns-1]);
+        }
+    }
+}
+
+void approximateGradient(short int*& grad_x, short int*& grad_y, int rows, int columns, short int*& grad){
+    grad = new short int[rows * columns];
+    for(int i = 0; i < (rows*columns); i++){
+        grad[i] = (int)sqrt((grad_x[i] * grad_x[i]) + (grad_y[i] * grad_y[i]));
+    }
+}

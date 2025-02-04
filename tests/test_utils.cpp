@@ -85,7 +85,7 @@ TEST(Gaussian, InRange){
   delete[] smoothed_img;
 }
 
-TEST(Gaussian, SameSize){
+TEST(Gaussian, GaussianDimensions){
   std::string image_path = "/Users/stevenchang/Documents/Repos/Canny_Edge/tests/test.jpg";
   Mat img = imread(image_path, IMREAD_GRAYSCALE);
   unsigned char* data = img.data;
@@ -101,4 +101,145 @@ TEST(Gaussian, SameSize){
   EXPECT_EQ(smoothedMat.cols, columns);
   
   delete[] smoothed_img;
+}
+
+TEST(Gradient, GradientDimensions){
+  short int* grad_x;
+  short int* grad_y;
+  int rows = 3;
+  int columns = 3;
+
+  short int* smoothed_img = new short int[9]{1,2,1,2,3,2,3,4,3};
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
+
+  Mat x(rows, columns, CV_16S, grad_x);
+  EXPECT_EQ(x.rows, rows);
+  EXPECT_EQ(x.cols, columns);
+
+  Mat y(rows, columns, CV_16S, grad_y);
+  EXPECT_EQ(y.rows, rows);
+  EXPECT_EQ(y.cols, columns);
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] smoothed_img;
+}
+
+TEST(Gradient, xOnes){
+  short int* grad_x;
+  short int* grad_y;
+  int rows = 3;
+  int columns = 3;
+
+  short int* smoothed_img = new short int[9]{1,1,1,1,1,1,1,1,1};
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
+
+  int expected[9]{0,0,0,0,0,0,0,0,0};
+
+  for(int i = 0; i < 9; i++){
+    EXPECT_EQ(grad_x[i],expected[i]);
+    if(grad_x[i] != expected[i]){ std::cout << "X " << i << std::endl;}
+  }
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] smoothed_img;
+}
+
+TEST(Gradient, yOnes){
+  short int* grad_x;
+  short int* grad_y;
+  int rows = 3;
+  int columns = 3;
+
+  short int* smoothed_img = new short int[9]{1,1,1,1,1,1,1,1,1};
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
+
+  int expected[9]{0,0,0,0,0,0,0,0,0};
+
+  for(int i = 0; i < 9; i++){
+    EXPECT_EQ(grad_y[i],expected[i]);
+    if(grad_y[i] != expected[i]){ std::cout << "Y " << i << std::endl;}
+  }
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] smoothed_img;
+}
+
+TEST(Gradient, xCorrect){
+  short int* grad_x;
+  short int* grad_y;
+  int rows = 3;
+  int columns = 3;
+
+  short int* smoothed_img = new short int[9]{1,2,1,2,3,2,3,4,3};
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
+
+  int expected[9]{3,0,-3,4,0,-4,3,0,-3};
+
+  for(int i = 0; i < 9; i++){
+    EXPECT_EQ(grad_x[i],expected[i]);
+  }
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] smoothed_img;
+}
+
+TEST(Gradient, yCorrect){
+  short int* grad_x;
+  short int* grad_y;
+  int rows = 3;
+  int columns = 3;
+
+  short int* smoothed_img = new short int[9]{1,2,1,2,3,2,3,4,3};
+  calculateXYGradient(smoothed_img,rows,columns,grad_x,grad_y);
+
+  int expected[9]{3,4,3,6,8,6,3,4,3};
+
+  for(int i = 0; i < 9; i++){
+    EXPECT_EQ(grad_y[i],expected[i]);
+  }
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] smoothed_img;
+}
+
+TEST(ApproximateGradient, GradientDimensions){
+  short int* grad_x = new short int [9]{1,1,1,1,1,1,1,1,1};
+  short int* grad_y = new short int [9]{1,1,1,1,1,1,1,1,1};;
+  int rows = 3;
+  int columns = 3;
+
+  short int* grad;
+  approximateGradient(grad_x, grad_y, rows, columns, grad);
+
+  Mat x(rows, columns, CV_16S, grad);
+  EXPECT_EQ(x.rows, rows);
+  EXPECT_EQ(x.cols, columns);
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] grad;
+}
+
+TEST(ApproximateGradient, GradientCalculation){
+  short int* grad_x = new short int [9]{1,1,1,1,1,1,1,1,1};
+  short int* grad_y = new short int [9]{1,1,1,1,1,1,1,1,1};
+  int rows = 3;
+  int columns = 3;
+
+  short int expectation[9]{1,1,1,1,1,1,1,1,1};
+  short int* grad;
+  approximateGradient(grad_x, grad_y, rows, columns, grad);
+
+  for(int i = 0; i < (rows * columns); i++){
+    EXPECT_EQ(fabs(grad[i]-expectation[i]) < FLT_EPSILON, true);
+  }
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] grad;
 }

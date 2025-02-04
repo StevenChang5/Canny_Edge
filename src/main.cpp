@@ -51,18 +51,31 @@ int main(int argc, char* argv[]) {
 
         // For displaying smoothed image
         Mat smoothedMat(frames[i].rows,frames[i].cols, CV_16S, smoothed_img);
-        for(int i = 0; i<(frames[i].rows * frames[i].cols);i++){
-            cout << smoothed_img[i] << " ";
-        }
-
         Mat smoothed_display;
+
         normalize(smoothedMat, smoothed_display, 0, 255, NORM_MINMAX);
         smoothed_display.convertTo(smoothed_display, CV_8U);
 
         imshow("Gaussian Smoothed Image", smoothed_display);
         waitKey(0);
 
-        // Todo: Derivative calculation
+        // Derivative calculation
+        short int* grad_x;
+        short int* grad_y;
+        short int* grad;
+
+        calculateXYGradient(smoothed_img,frames[i].rows,frames[i].cols,grad_x,grad_y);
+
+        approximateGradient(grad_x,grad_y,frames[i].rows,frames[i].cols,grad);
+
+        // For displaying smoothed image
+        Mat gradientMat(frames[i].rows,frames[i].cols, CV_16S, grad);
+        Mat gradient_display;
+        normalize(gradientMat, gradient_display, 0, 255, NORM_MINMAX);
+        gradient_display.convertTo(gradient_display, CV_8U);
+
+        imshow("Edge Image", gradient_display);
+        waitKey(0);
     }
     return 0;
 }
