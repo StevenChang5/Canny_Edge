@@ -243,3 +243,40 @@ TEST(ApproximateGradient, GradientCalculation){
   delete[] grad_y;
   delete[] grad;
 }
+
+TEST(ApproximateAngle, GradientDimensions){
+  short int* grad_x = new short int [5]{1,1,1,1,1};
+  short int* grad_y = new short int [5]{0,-1,1,3,-3};
+  int rows = 1;
+  int columns = 5;
+
+  short int* angle;
+  approximateGradient(grad_x, grad_y, rows, columns, angle);
+
+  Mat x(rows, columns, CV_16S, angle);
+  EXPECT_EQ(x.rows, rows);
+  EXPECT_EQ(x.cols, columns);
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] angle;
+}
+
+TEST(ApproximateAngle, GradientCalculation){
+  short int* grad_x = new short int [5]{1,1,1,1,1};
+  short int* grad_y = new short int [5]{0,-1,1,3,-3};
+  int rows = 1;
+  int columns = 5;
+
+  short int expectation[5]{0,135,45,90,90};
+  short int* angle;
+  approximateAngle(grad_x, grad_y, rows, columns, angle);
+
+  for(int i = 0; i < (rows * columns); i++){
+    EXPECT_EQ(angle[i],expectation[i]);
+  }
+
+  delete[] grad_x;
+  delete[] grad_y;
+  delete[] angle;
+}

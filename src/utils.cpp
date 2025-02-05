@@ -170,3 +170,28 @@ void approximateGradient(short int*& grad_x, short int*& grad_y, int rows, int c
         grad[i] = (int)sqrt((grad_x[i] * grad_x[i]) + (grad_y[i] * grad_y[i]));
     }
 }
+
+void approximateAngle(short int*& grad_x, short int*& grad_y, int rows, int columns, short int*& angle){
+    angle = new short int [rows * columns];
+    float temp;
+    for(int i = 0; i < (rows*columns); i++){
+        temp = atan2((double)grad_y[i],(double)grad_x[i]);
+        temp *= (180/M_PI);
+        if(temp < 0){
+            temp = 360 + temp;
+        }
+        cout << temp << endl;
+        if((temp >= 22.5 && temp < 67.5) || (temp >= 202.5 && temp < 247.5)){
+            angle[i] = 45;
+        }
+        else if((temp >= 112.5 && temp < 157.5) || (temp >= 292.5 && temp < 337.5)){
+            angle[i] = 135;
+        }
+        else if((temp >= 67.5 && temp < 112.5) || (temp >= 247.5 && temp < 292.5)){
+            angle[i] = 90;
+        }
+        else{
+            angle[i] = 0;
+        }
+    }
+}
