@@ -262,7 +262,7 @@ TEST(ApproximateAngle, GradientDimensions){
   delete[] angle;
 }
 
-TEST(ApproximateAngle, GradientCalculation){
+TEST(ApproximateAngle, AngleCalculation){
   short int* grad_x = new short int [5]{1,1,1,1,1};
   short int* grad_y = new short int [5]{0,-1,1,3,-3};
   int rows = 1;
@@ -279,4 +279,88 @@ TEST(ApproximateAngle, GradientCalculation){
   delete[] grad_x;
   delete[] grad_y;
   delete[] angle;
+}
+
+TEST(NonmaximalSuppression, SuppressionCalculation0){
+  short int* grad = new short int[9]{0,0,0,0,10,0,50,20,50};
+  short int* angle = new short int[9]{0,0,0,0,0,0,0,0,0};
+
+  short int expectation[9]{0,0,0,0,255,0,255,0,255};
+
+  int rows = 3;
+  int columns = 3;
+  short int* suppress;
+
+  nonmaximalSuppression(grad,angle,rows,columns,suppress);
+
+  for(int i = 0; i < rows*columns; i++){
+    EXPECT_EQ(suppress[i],expectation[i]);
+  }
+
+  delete[] grad;
+  delete[] angle;
+  delete[] suppress;
+}
+
+TEST(NonmaximalSuppression, SuppressionCalculation45){
+  short int* grad = new short int[9]{0,1,1,0,2,0,1,1,0};
+  short int* angle = new short int[9]{0,45,45,45,45,45,45,45,0};
+
+  short int expectation[9]{0,255,0,0,255,0,0,255,0};
+
+  int rows = 3;
+  int columns = 3;
+  short int* suppress;
+
+  nonmaximalSuppression(grad,angle,rows,columns,suppress);
+
+  for(int i = 0; i < rows*columns; i++){
+    EXPECT_EQ(suppress[i],expectation[i]);
+  }
+
+  delete[] grad;
+  delete[] angle;
+  delete[] suppress;
+}
+
+TEST(NonmaximalSuppression, SuppressionCalculation90){
+  short int* grad = new short int[9]{1,0,0,0,1,0,0,0,1};
+  short int* angle = new short int[9]{90,90,90,90,90,90,90,90,90};
+
+  short int expectation[9]{255,0,0,0,255,0,0,0,255};
+
+  int rows = 3;
+  int columns = 3;
+  short int* suppress;
+
+  nonmaximalSuppression(grad,angle,rows,columns,suppress);
+
+  for(int i = 0; i < rows*columns; i++){
+    EXPECT_EQ(suppress[i],expectation[i]);
+  }
+
+  delete[] grad;
+  delete[] angle;
+  delete[] suppress;
+}
+
+TEST(NonmaximalSuppression, SuppressionCalculation135){
+  short int* grad = new short int[9]{0,1,1,0,2,0,1,1,0};
+  short int* angle = new short int[9]{135,135,0,135,135,135,0,135,135};
+
+  short int expectation[9]{0,255,0,0,255,0,0,255,0};
+
+  int rows = 3;
+  int columns = 3;
+  short int* suppress;
+
+  nonmaximalSuppression(grad,angle,rows,columns,suppress);
+
+  for(int i = 0; i < rows*columns; i++){
+    EXPECT_EQ(suppress[i],expectation[i]);
+  }
+
+  delete[] grad;
+  delete[] angle;
+  delete[] suppress;
 }
