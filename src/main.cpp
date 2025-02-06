@@ -76,6 +76,19 @@ int main(int argc, char* argv[]) {
 
         imshow("Edge Image", gradient_display);
         waitKey(0);
+
+        // Non-maximal Suppression
+        short int* suppress;
+
+        nonmaximalSuppresion(grad, grad_x, grad_y, frames[i].rows,frames[i].cols,suppress);
+        
+        Mat suppressMat(frames[i].rows,frames[i].cols, CV_16S, grad);
+        Mat suppress_display;
+        normalize(suppressMat, suppress_display, 0, 255, NORM_MINMAX);
+        suppress_display.convertTo(suppress_display, CV_8U);
+
+        imshow("Nonmaximal Image", suppress_display);
+        waitKey(0);
     }
     return 0;
 }
