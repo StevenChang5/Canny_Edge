@@ -14,5 +14,5 @@ void approximateGradient(short int*& grad_x, short int*& grad_y, int rows, int c
 
 void approximateAngle(short int*& grad_x, short int*& grad_y, int rows, int columns, short int*& angle);
 
-void nonmaximalSuppresion(short int*& grad, short int *& grad_x, short int*& grad_y, int rows, int columns, short int*& suppress);
+void nonmaximalSuppression(short int*& grad, short int *& angle, int rows, int columns, short int*& suppress);
 #endif
