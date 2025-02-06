@@ -170,3 +170,87 @@ void approximateGradient(short int*& grad_x, short int*& grad_y, int rows, int c
         grad[i] = (int)sqrt((grad_x[i] * grad_x[i]) + (grad_y[i] * grad_y[i]));
     }
 }
+
+void approximateAngle(short int*& grad_x, short int*& grad_y, int rows, int columns, short int*& angle){
+    angle = new short int [rows * columns];
+    float temp;
+    for(int i = 0; i < (rows*columns); i++){
+        temp = atan2((double)grad_y[i],(double)grad_x[i]);
+        temp *= (180/M_PI);
+        if(temp < 0){
+            temp = 360 + temp;
+        }
+        if((temp >= 22.5 && temp < 67.5) || (temp >= 202.5 && temp < 247.5)){
+            angle[i] = 45;
+        }
+        else if((temp >= 112.5 && temp < 157.5) || (temp >= 292.5 && temp < 337.5)){
+            angle[i] = 135;
+        }
+        else if((temp >= 67.5 && temp < 112.5) || (temp >= 247.5 && temp < 292.5)){
+            angle[i] = 90;
+        }
+        else{
+            angle[i] = 0;
+        }
+    }
+}
+
+// Access to pixel (row, column) is given by [row * num_columns + column]
+void nonmaximalSuppression(short int*& grad, short int *& angle, int rows, int columns, short int*& suppress){
+    bool max;
+    suppress = new short int[rows*columns];
+    for(int i = 0; i < rows * columns; i++){
+        max = true;
+        if(angle[i] == 0){
+            int left = i - 1;
+            int right = i + 1;
+            if((i%columns) > 0){
+                if(grad[i] <= grad[left]){max = false;}
+            }
+            if(i%columns < columns-1){
+                if(grad[i] <= grad[right]){max = false;}
+            }
+            if(max){suppress[i] = grad[i];}
+            else{suppress[i] = NOEDGE;}
+        }   
+        else if(angle[i] == 45){
+            int upRight = i + 1 - columns;
+            int downLeft = i - 1 + columns;
+
+            if((i%columns < columns-1) && (i >= rows)){
+                if(grad[i] <= grad[upRight]){max = false;}
+            }
+            if((i%columns > 0) && (i < (rows*columns)-rows)){
+                if(grad[i] <= grad[downLeft]){max = false;}
+            }
+            if(max){suppress[i] = grad[i];}
+            else{suppress[i] = NOEDGE;}
+        }
+        else if(angle[i] == 90){
+            int up = i - columns;
+            int down = i + columns;
+
+            if(i >= rows){
+                if(grad[i] <= grad[up]){max = false;}
+            }
+            if(i < (rows*columns)-rows){
+                if(grad[i] <= grad[down]){max = false;}
+            }
+            if(max){suppress[i] = grad[i];}
+            else{suppress[i] = NOEDGE;}
+        } 
+        else if(angle[i] == 135){
+            int upLeft = i - 1 - columns;
+            int downRight = i + 1 + columns;
+
+            if((i%columns > 0) && (i >= rows)){
+                if(grad[i] <= grad[upLeft]){max = false;}
+            }
+            if((i%columns < columns-1) && (i < (rows*columns)-rows)){
+                if(grad[i] <= grad[downRight]){max = false;}
+            }
+            if(max){suppress[i] = grad[i];}
+            else{suppress[i] = NOEDGE;}
+        }
+    }
+}
