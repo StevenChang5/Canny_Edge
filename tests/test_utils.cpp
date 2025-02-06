@@ -285,7 +285,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation0){
   short int* grad = new short int[9]{0,0,0,0,10,0,50,20,50};
   short int* angle = new short int[9]{0,0,0,0,0,0,0,0,0};
 
-  short int expectation[9]{0,0,0,0,255,0,255,0,255};
+  short int expectation[9]{0,0,0,0,10,0,50,0,50};
 
   int rows = 3;
   int columns = 3;
@@ -306,7 +306,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation45){
   short int* grad = new short int[9]{0,1,1,0,2,0,1,1,0};
   short int* angle = new short int[9]{0,45,45,45,45,45,45,45,0};
 
-  short int expectation[9]{0,255,0,0,255,0,0,255,0};
+  short int expectation[9]{0,1,0,0,2,0,0,1,0};
 
   int rows = 3;
   int columns = 3;
@@ -327,7 +327,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation90){
   short int* grad = new short int[9]{1,0,0,0,1,0,0,0,1};
   short int* angle = new short int[9]{90,90,90,90,90,90,90,90,90};
 
-  short int expectation[9]{255,0,0,0,255,0,0,0,255};
+  short int expectation[9]{1,0,0,0,1,0,0,0,1};
 
   int rows = 3;
   int columns = 3;
@@ -348,7 +348,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation135){
   short int* grad = new short int[9]{0,1,1,0,2,0,1,1,0};
   short int* angle = new short int[9]{135,135,0,135,135,135,0,135,135};
 
-  short int expectation[9]{0,255,0,0,255,0,0,255,0};
+  short int expectation[9]{0,1,0,0,2,0,0,1,0};
 
   int rows = 3;
   int columns = 3;
