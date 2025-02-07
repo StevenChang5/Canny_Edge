@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <queue>
 
 using namespace std;
 
@@ -252,5 +253,90 @@ void nonmaximalSuppression(short int*& grad, short int *& angle, int rows, int c
             if(max){suppress[i] = grad[i];}
             else{suppress[i] = NOEDGE;}
         }
+    }
+}
+
+void hysteresis(short int*& suppress, int rows, int columns, int minVal, int maxVal, short int*& img){
+    bool visited[rows * columns];
+    fill_n(visited, rows*columns,false);
+    
+    // filter out any pixels below minimum threshold
+    for(int i = 0; i < rows*columns; i++){
+        if(suppress[i] < minVal){
+            suppress[i] = NOEDGE;
+        }
+    }
+}
+
+// Access to pixel (row, column) is given by [row * num_columns + column]
+void allEdgePixels(short int*& suppress, bool*& visited, int start, int minVal, int maxVal, int rows, int columns){
+    if(visited[start] == true){return;}
+
+    queue<int> pixels;
+    int current; 
+
+    pixels.push(start);
+    while(!pixels.empty()){
+        current = pixels.front();
+        suppress[current] = EDGE;
+        // if current has pixels to the left of it
+        if(current%columns > 0){
+            // if current has pixels below it
+            if(current < (rows*columns)-rows){
+                if(suppress[current+columns - 1] > minVal && !visited[current+columns-1]){
+                    pixels.push(current+columns-1);
+                    visited[current+columns-1] = true;
+                }
+            }
+            // if current has pixels above it
+            if(current >= rows){
+                if(suppress[current-columns-1] > minVal && !visited[current-columns-1]){
+                    pixels.push(current-columns-1);
+                    visited[current-columns-1] = true;
+                }
+            }
+            if(suppress[current-1] > minVal && !visited[current-1]){
+                pixels.push(current-1);
+                visited[current-1] = true;
+            }
+        }
+        // if current has pixels to the right of it
+        if(current%columns < columns-1){
+            // if current has pixels below it
+            if(current < (rows*columns)-rows){
+                if(suppress[current+columns+1] > minVal && !visited[current+columns+1]){
+                    pixels.push(current+columns+1);
+                    visited[current+columns+1] = true;
+                }
+            }
+            // if current has pixels above it
+            if(current >= rows){
+                if(suppress[current-columns+1] > minVal && !visited[current-columns+1]){
+                    pixels.push(current-columns+1);
+                    visited[current-columns+1] = true;
+                }
+            }
+            if(suppress[current+1] > minVal && !visited[current+1]){
+                pixels.push(current+1);
+                visited[current+1] = true;
+            }
+        }
+
+        // if current has pixels below it TODO
+        if(current < (rows*columns)-rows){
+            if(suppress[current+columns] > minVal && !visited[current+columns]){
+                pixels.push(current+columns);
+                visited[current+columns] = true;
+            }
+        }
+
+        // if current has pixels above it TODO
+        if(current >= rows){
+            if(suppress[current-columns] > minVal && !visited[current-columns]){
+                pixels.push(current-columns);
+                visited[current-columns] = true;
+            }
+        }
+        pixels.pop();
     }
 }
