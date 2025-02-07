@@ -8,6 +8,8 @@ using namespace cv;
 
 int main(int argc, char* argv[]) {
     float sigma = atof(argv[1]);
+    int minVal = atof(argv[2]);
+    int maxVal = atof(argv[3]);
 
     VideoCapture cap;
 
@@ -91,6 +93,17 @@ int main(int argc, char* argv[]) {
         suppress_display.convertTo(suppress_display, CV_8U);
 
         imshow("Nonmaximal Image", suppress_display);
+        waitKey(0);
+
+        // Hysteresis
+        hysteresis(suppress, frames[i].rows, frames[i].cols, minVal, maxVal);
+
+        Mat finalMat(frames[i].rows,frames[i].cols, CV_16S, suppress);
+        Mat final_display;
+        normalize(finalMat, final_display, 0, 255, NORM_MINMAX);
+        final_display.convertTo(final_display, CV_8U);
+
+        imshow("Nonmaximal Image", final_display);
         waitKey(0);
 
         delete[] grad_x;

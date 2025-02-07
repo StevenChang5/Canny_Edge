@@ -256,16 +256,25 @@ void nonmaximalSuppression(short int*& grad, short int *& angle, int rows, int c
     }
 }
 
-void hysteresis(short int*& suppress, int rows, int columns, int minVal, int maxVal, short int*& img){
-    bool visited[rows * columns];
+void hysteresis(short int*& suppress, int rows, int columns, int minVal, int maxVal){
+    bool* visited = new bool [rows * columns];
     fill_n(visited, rows*columns,false);
     
-    // filter out any pixels below minimum threshold
+    // filter out any pixels below minimum threshold, find all pixels connected to strong edges
     for(int i = 0; i < rows*columns; i++){
         if(suppress[i] < minVal){
             suppress[i] = NOEDGE;
         }
+        else if(suppress[i] >= maxVal){
+            allEdgePixels(suppress, visited, i, minVal, maxVal, rows, columns);
+        }
     }
+    for(int i = 0; i < rows*columns; i++){
+        if(suppress[i] < maxVal){
+            suppress[i] = NOEDGE;
+        }
+    }
+    delete[] visited;
 }
 
 // Access to pixel (row, column) is given by [row * num_columns + column]
@@ -283,19 +292,19 @@ void allEdgePixels(short int*& suppress, bool*& visited, int start, int minVal, 
         if(current%columns > 0){
             // if current has pixels below it
             if(current < (rows*columns)-rows){
-                if(suppress[current+columns - 1] > minVal && !visited[current+columns-1]){
+                if(suppress[current+columns - 1] >= minVal && !visited[current+columns-1]){
                     pixels.push(current+columns-1);
                     visited[current+columns-1] = true;
                 }
             }
             // if current has pixels above it
             if(current >= rows){
-                if(suppress[current-columns-1] > minVal && !visited[current-columns-1]){
+                if(suppress[current-columns-1] >= minVal && !visited[current-columns-1]){
                     pixels.push(current-columns-1);
                     visited[current-columns-1] = true;
                 }
             }
-            if(suppress[current-1] > minVal && !visited[current-1]){
+            if(suppress[current-1] >= minVal && !visited[current-1]){
                 pixels.push(current-1);
                 visited[current-1] = true;
             }
@@ -304,19 +313,19 @@ void allEdgePixels(short int*& suppress, bool*& visited, int start, int minVal, 
         if(current%columns < columns-1){
             // if current has pixels below it
             if(current < (rows*columns)-rows){
-                if(suppress[current+columns+1] > minVal && !visited[current+columns+1]){
+                if(suppress[current+columns+1] >= minVal && !visited[current+columns+1]){
                     pixels.push(current+columns+1);
                     visited[current+columns+1] = true;
                 }
             }
             // if current has pixels above it
             if(current >= rows){
-                if(suppress[current-columns+1] > minVal && !visited[current-columns+1]){
+                if(suppress[current-columns+1] >= minVal && !visited[current-columns+1]){
                     pixels.push(current-columns+1);
                     visited[current-columns+1] = true;
                 }
             }
-            if(suppress[current+1] > minVal && !visited[current+1]){
+            if(suppress[current+1] >= minVal && !visited[current+1]){
                 pixels.push(current+1);
                 visited[current+1] = true;
             }
@@ -324,7 +333,7 @@ void allEdgePixels(short int*& suppress, bool*& visited, int start, int minVal, 
 
         // if current has pixels below it TODO
         if(current < (rows*columns)-rows){
-            if(suppress[current+columns] > minVal && !visited[current+columns]){
+            if(suppress[current+columns] >= minVal && !visited[current+columns]){
                 pixels.push(current+columns);
                 visited[current+columns] = true;
             }
@@ -332,7 +341,7 @@ void allEdgePixels(short int*& suppress, bool*& visited, int start, int minVal, 
 
         // if current has pixels above it TODO
         if(current >= rows){
-            if(suppress[current-columns] > minVal && !visited[current-columns]){
+            if(suppress[current-columns] >= minVal && !visited[current-columns]){
                 pixels.push(current-columns);
                 visited[current-columns] = true;
             }

@@ -392,3 +392,25 @@ TEST(allEdgePixels,CorrectCalculations){
   delete[] suppress;
   delete[] visited;
 }
+
+TEST(Hysteresis, CorrectFunction){
+  short int* suppress = new short int[25]{
+    5,6,0,5,10,
+    4,1,0,1,4,
+    1,3,7,0,0,
+    10,9,8,0,0
+  };
+  short int expectation[25]{
+    EDGE,EDGE,0,EDGE,EDGE,
+    EDGE,0,0,0,EDGE,
+    0,EDGE,EDGE,0,0,
+    EDGE,EDGE,EDGE,0,0
+  };
+  hysteresis(suppress,5,5,2,10);
+
+  for(int i = 0; i < 5*5; i++){
+    EXPECT_EQ(suppress[i], expectation[i]);
+  }
+
+  delete[] suppress;
+}
