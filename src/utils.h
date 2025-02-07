@@ -15,4 +15,8 @@ void approximateGradient(short int*& grad_x, short int*& grad_y, int rows, int c
 void approximateAngle(short int*& grad_x, short int*& grad_y, int rows, int columns, short int*& angle);
 
 void nonmaximalSuppression(short int*& grad, short int *& angle, int rows, int columns, short int*& suppress);
+
+void hysteresis(short int*& suppress, int rows, int columns, int minVal, int maxVal);
+
+void allEdgePixels(short int*& suppress, bool*& visited, int start, int minVal, int maxVal, int rows, int columns);
 #endif

@@ -285,7 +285,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation0){
   short int* grad = new short int[9]{0,0,0,0,10,0,50,20,50};
   short int* angle = new short int[9]{0,0,0,0,0,0,0,0,0};
 
-  short int expectation[9]{0,0,0,0,255,0,255,0,255};
+  short int expectation[9]{0,0,0,0,10,0,50,0,50};
 
   int rows = 3;
   int columns = 3;
@@ -306,7 +306,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation45){
   short int* grad = new short int[9]{0,1,1,0,2,0,1,1,0};
   short int* angle = new short int[9]{0,45,45,45,45,45,45,45,0};
 
-  short int expectation[9]{0,255,0,0,255,0,0,255,0};
+  short int expectation[9]{0,1,0,0,2,0,0,1,0};
 
   int rows = 3;
   int columns = 3;
@@ -327,7 +327,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation90){
   short int* grad = new short int[9]{1,0,0,0,1,0,0,0,1};
   short int* angle = new short int[9]{90,90,90,90,90,90,90,90,90};
 
-  short int expectation[9]{255,0,0,0,255,0,0,0,255};
+  short int expectation[9]{1,0,0,0,1,0,0,0,1};
 
   int rows = 3;
   int columns = 3;
@@ -348,7 +348,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation135){
   short int* grad = new short int[9]{0,1,1,0,2,0,1,1,0};
   short int* angle = new short int[9]{135,135,0,135,135,135,0,135,135};
 
-  short int expectation[9]{0,255,0,0,255,0,0,255,0};
+  short int expectation[9]{0,1,0,0,2,0,0,1,0};
 
   int rows = 3;
   int columns = 3;
@@ -362,5 +362,55 @@ TEST(NonmaximalSuppression, SuppressionCalculation135){
 
   delete[] grad;
   delete[] angle;
+  delete[] suppress;
+}
+
+TEST(allEdgePixels,CorrectCalculations){
+  short int* suppress = new short int[25]{
+    5,6,0,5,5,
+    4,1,0,1,4,
+    1,3,7,0,0,
+    10,9,8,0,0
+  };
+
+  short int expectation[25]{
+    EDGE,EDGE,0,5,5,
+    EDGE,1,0,1,4,
+    1,EDGE,EDGE,0,0,
+    EDGE,EDGE,EDGE,0,0
+  };
+
+  bool* visited = new bool[5*5];
+  std::fill_n(visited,5*5,false);
+  
+  allEdgePixels(suppress,visited,1,2,10,5,5);
+
+  for(int i = 0; i < 5*5; i++){
+    EXPECT_EQ(suppress[i],expectation[i]);
+  }
+
+  delete[] suppress;
+  delete[] visited;
+}
+
+TEST(Hysteresis, CorrectFunction){
+  short int* suppress = new short int[25]{
+    5,6,0,5,10,
+    4,1,0,1,4,
+    1,3,7,0,0,
+    10,9,8,0,0
+  };
+  short int expectation[25]{
+    EDGE,EDGE,0,EDGE,EDGE,
+    EDGE,0,0,0,EDGE,
+    0,EDGE,EDGE,0,0,
+    EDGE,EDGE,EDGE,0,0
+  };
+  hysteresis(suppress,5,5,2,10);
+
+  for(int i = 0; i < 5*5; i++){
+    EXPECT_EQ(suppress[i], expectation[i]);
+  }
+
   delete[] suppress;
 }
