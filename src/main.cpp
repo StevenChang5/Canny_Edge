@@ -1,5 +1,6 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
+#include <chrono>
 
 #include <src/utils.h>
 
@@ -76,11 +77,13 @@ int main(int argc, char* argv[]) {
      * Perform canny edge detection on capture frames
     ***********************************************************/
     for(int i = 0; i < frames.size(); i++){
-        img = frames[i].data;
 
         // Display image before any processing
         imshow("Camera Feed", frames[i]);
         waitKey(0);
+
+        auto start = chrono::high_resolution_clock::now();
+        img = frames[i].data;
 
         // Apply gaussian blurring
         gaussian(img,sigma,frames[i].rows,frames[i].cols,smoothed_img);
@@ -124,7 +127,7 @@ int main(int argc, char* argv[]) {
 
         // Use hysteresis to keep pixels with intensities within the given thresholds
         hysteresis(nonmaximal, frames[i].rows, frames[i].cols, minVal, maxVal);
-
+        auto stop = chrono::high_resolution_clock::now();
         // Display final image with canny edge detection applied to it
         Mat finalMat(frames[i].rows,frames[i].cols, CV_16S, nonmaximal);
         Mat final_display;
@@ -132,6 +135,9 @@ int main(int argc, char* argv[]) {
         final_display.convertTo(final_display, CV_8U);
         imshow("Nonmaximal Image", final_display);
         waitKey(0);
+
+        chrono::duration<double> duration = stop - start;
+        cout << "Execution time: " << duration.count() << " seconds\n";
 
         delete[] magnitude;
         delete[] angle;
