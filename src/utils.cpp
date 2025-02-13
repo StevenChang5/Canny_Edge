@@ -36,7 +36,7 @@ void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*
             float sum = 0;
             float count = 0;
             for(int k = -center; k < (center+1); k++){
-                if((j+k >= 0) && (j+k < columns)){
+                if((j+k >= 0) and (j+k < columns)){
                     sum += (float(img[i * columns + (j+k)]) * kernel[center+k]);
                     count += kernel[center+k];
                 }
@@ -51,7 +51,7 @@ void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*
             float sum = 0;
             float count = 0; 
             for(int k = -center; k<(center+1); k++){
-                if((j+k >= 0) && (j+k < rows)){
+                if((j+k >= 0) and (j+k < rows)){
                     sum += (float(temp_img[(j+k) * columns + i]) * kernel[center+k]);
                     count += kernel[center+k];
                 }

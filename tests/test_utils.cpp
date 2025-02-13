@@ -45,7 +45,7 @@ TEST(Gaussian, KernelCreation) {
 }
 
 TEST(Gaussian, IsNonzero){
-  std::string image_path = "/Users/stevenchang/Documents/Repos/Canny_Edge/tests/test.jpg";
+  std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
   Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
   unsigned char* data = img.data;
   float sigma = 0.5;
@@ -67,7 +67,7 @@ TEST(Gaussian, IsNonzero){
 }
 
 TEST(Gaussian, InRange){
-  std::string image_path = "/Users/stevenchang/Documents/Repos/Canny_Edge/tests/test.jpg";
+  std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
   Mat img = imread(image_path, IMREAD_GRAYSCALE);
   unsigned char* data = img.data;
   float sigma = 0.5;
@@ -86,7 +86,7 @@ TEST(Gaussian, InRange){
 }
 
 TEST(Gaussian, GaussianDimensions){
-  std::string image_path = "/Users/stevenchang/Documents/Repos/Canny_Edge/tests/test.jpg";
+  std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
   Mat img = imread(image_path, IMREAD_GRAYSCALE);
   unsigned char* data = img.data;
   float sigma = 0.5;
