@@ -210,7 +210,7 @@ void sobelOperator(short int*& img, int rows, int columns, short int*& magnitude
 
         // Calculate angle of gradient at every pixel
         temp_angle = atan2((double)grad_y[i],(double)grad_x[i]);
-        temp_angle *= (180/M_PI);
+        temp_angle *= (180/PI);
         if(temp_angle < 0){
             temp_angle = 360 + temp_angle;
         }

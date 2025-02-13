@@ -3,6 +3,7 @@
 
 #define STEPS 0
 
+#define PI 3.1415926535
 #define EDGE 255
 #define NOEDGE 0
 
