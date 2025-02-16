@@ -24,10 +24,10 @@ cd build/src
 ## Example
 <p align="center">
     <img src="figures/example.jpg" alt="Original Image" width="180" height="180"/>
-    <img src="figures/gaussian.png" alt="Gaussian Blur" width="180" height="180"/>
-    <img src="figures/gradient.png" alt="Gradient Calculation" width="180" height="180"/>
-    <img src="figures/nonmaximal.png" alt="Nonmaximal Suppression" width="180" height="180"/>
-    <img src="figures/hysteresis.png" alt="Hysteresis Thresholding" width="180" height="180"/>
+    <img src="figures/gaussian.jpeg" alt="Gaussian Blur" width="180" height="180"/>
+    <img src="figures/gradient.jpeg" alt="Gradient Calculation" width="180" height="180"/>
+    <img src="figures/nonmaximal.jpeg" alt="Nonmaximal Suppression" width="180" height="180"/>
+    <img src="figures/hysteresis.jpeg" alt="Hysteresis Thresholding" width="180" height="180"/>
 </p>
 
 1. **Gaussian Blurring:** The image is first changed to a grayscale image. To remove noise that can affect edge detection, a gaussian filter is applied to the image. A gaussian filter is generated as a function of the provided sigma value, and is used to smooth the image.
