@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.28.0)
 project(CannyEdge)
 
+enable_language(CUDA)
+
 # Set C++ Standard
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
