@@ -194,8 +194,53 @@ void cuda_calculate_xy_gradient(short int* img, int height, int width, short int
     xy_utility<<<3,512>>>(img, height, width, grad_x, grad_y);
     
     cudaDeviceSynchronize();
-    
+
     cudaFree(img);
+}
+
+__global__ void sobel_utility(short int* grad_x, short int* grad_y, int height, int width, short int* magnitude, short int* angle){
+    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+  
+    int stride_x = blockDim.x * gridDim.x;
+    int stride_y = blockDim.y * gridDim.y;
+
+    for(int col = idx_x; col < width; col += stride_x){
+        for(int row = idx_y; row < height; row += stride_y){
+            // Calculate magnitude of gradient at every pixel
+            int idx = row * width + col;
+            magnitude[idx] = (int)sqrtf((grad_x[idx] * grad_x[idx]) + (grad_y[idx] * grad_y[idx]));
+
+            // Calculate angle of gradient at every pixel
+            float temp_angle = atan2((double)grad_y[idx],(double)grad_x[idx]);
+            temp_angle *= (180/PI);
+            if(temp_angle < 0){
+                temp_angle = 360 + temp_angle;
+            }
+            if((temp_angle >= 22.5 && temp_angle < 67.5) || (temp_angle >= 202.5 && temp_angle < 247.5)){
+                angle[idx] = 45;
+            }
+            else if((temp_angle >= 112.5 && temp_angle < 157.5) || (temp_angle >= 292.5 && temp_angle < 337.5)){
+                angle[idx] = 135;
+            }
+            else if((temp_angle >= 67.5 && temp_angle < 112.5) || (temp_angle >= 247.5 && temp_angle < 292.5)){
+                angle[idx] = 90;
+            }
+            else{
+                angle[idx] = 0;
+            }
+        }
+    }
+}
+
+void cuda_sobel_operator(short int* grad_x, short int* grad_y, int height, int width, short int*& magnitude, short int*& angle){
+    cudaMallocManaged(&magnitude, height*width*sizeof(short int));
+    cudaMallocManaged(&angle, height*width*sizeof(short int));
+
+    sobel_utility<<<3,512>>>(grad_x, grad_y, height, width, magnitude, angle);
+
+    cudaFree(grad_x);
+    cudaFree(grad_y);
 }
 
 

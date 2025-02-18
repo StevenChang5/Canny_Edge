@@ -91,7 +91,7 @@ TEST(CudaGaussian, GaussianDimensions){
 //     waitKey(0);
 // }
 
-TEST(Gradient, GradientDimensions){
+TEST(CudaGradient, GradientDimensions){
     short int* grad_x;
     short int* grad_y;
     int rows = 3;
@@ -121,7 +121,7 @@ TEST(Gradient, GradientDimensions){
     clear_memory(smoothed_img);
   }
   
-  TEST(Gradient, xOnes){
+  TEST(CudaGradient, xOnes){
     short int* grad_x;
     short int* grad_y;
     int rows = 3;
@@ -149,7 +149,7 @@ TEST(Gradient, GradientDimensions){
     clear_memory(smoothed_img);
   }
   
-  TEST(Gradient, yOnes){
+  TEST(CudaGradient, yOnes){
     short int* grad_x;
     short int* grad_y;
     int rows = 3;
@@ -177,7 +177,7 @@ TEST(Gradient, GradientDimensions){
     clear_memory(smoothed_img);
   }
   
-  TEST(Gradient, xCorrect){
+  TEST(CudaGradient, xCorrect){
     short int* grad_x;
     short int* grad_y;
     int rows = 3;
@@ -204,7 +204,7 @@ TEST(Gradient, GradientDimensions){
     clear_memory(smoothed_img);
   }
   
-  TEST(Gradient, yCorrect){
+  TEST(CudaGradient, yCorrect){
     short int* grad_x;
     short int* grad_y;
     int rows = 3;
@@ -276,4 +276,113 @@ TEST(Gradient, GradientDimensions){
 
 //     clear_memory(grad_x);
 //     clear_memory(grad_y);
+// }
+
+TEST(CudaSobelOperator, GradientCalculation){
+    short int* magnitude;
+    short int* angle;
+    int height = 3;
+    int width = 3;
+
+    short int* grad_x;
+    short int* grad_y;
+    allocate_memory(grad_x,1,9);
+    allocate_memory(grad_y,1,9);
+
+    short int temp[9]{1,1,1,1,1,1,1,1,1};
+
+    for(int i = 0; i < 9; i++){
+        grad_x[i] = temp[i];
+        grad_y[i] = temp[i];
+    }
+
+    short int expectation[9]{1,1,1,1,1,1,1,1,1};
+
+    cuda_sobel_operator(grad_x, grad_y, height, width, magnitude, angle);
+
+    for(int i = 0; i < (width * height); i++){
+        EXPECT_EQ(fabs(magnitude[i]-expectation[i]) < FLT_EPSILON, true);
+    }
+
+    clear_memory(magnitude);
+    clear_memory(angle);
+}
+
+TEST(CudaSobelOperator, AngleCalculation){
+    short int* magnitude;
+    short int* angle;
+    int height = 1;
+    int width = 5;
+
+    short int* grad_x;
+    short int* grad_y;
+    allocate_memory(grad_x, height, width);
+    allocate_memory(grad_y, height, width);
+
+    short int temp_x[5]{1,1,1,1,1};
+    short int temp_y[5]{0,-1,1,3,-3};
+
+    for(int i = 0; i < 5; i++){
+        grad_x[i] = temp_x[i];
+        grad_y[i] = temp_y[i];
+    }
+
+    short int expectation[5]{0,135,45,90,90};
+
+    cuda_sobel_operator(grad_x, grad_y, height, width, magnitude, angle);
+
+    for(int i = 0; i < (width * height); i++){
+        EXPECT_EQ(angle[i],expectation[i]);
+    }
+
+    clear_memory(magnitude);
+    clear_memory(angle);
+}
+
+// TEST(CudaSobel, Visual_Test){
+//     std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
+//     Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
+//     short int* result;
+//     unsigned char* data = img.data;
+//     float sigma = 0.5;
+//     int rows = 256;
+//     int columns = 256;
+  
+//     int sum = 0;
+  
+//     gaussian(data,sigma,rows,columns,result);
+
+//     Mat gaussianMat(256,256, CV_16S, result);
+//     Mat gaussian_display;
+
+//     normalize(gaussianMat, gaussian_display, 0, 255, NORM_MINMAX);
+//     gaussian_display.convertTo(gaussian_display, CV_8U);
+
+//     imshow("CudaGaussian Visual Test", gaussian_display);
+//     waitKey(0);
+
+//     short int* grad_x;
+//     short int* grad_y;
+
+//     cuda_calculate_xy_gradient(result, rows, columns, grad_x, grad_y);
+//     Mat xMat(256,256, CV_16S, grad_x);
+//     Mat yMat(256,256, CV_16S, grad_y);
+//     Mat x_display, y_display;
+
+//     normalize(xMat, x_display, 0, 255, NORM_MINMAX);
+//     x_display.convertTo(x_display, CV_8U);
+
+//     normalize(yMat, y_display, 0, 255, NORM_MINMAX);
+//     y_display.convertTo(y_display, CV_8U);
+
+//     imshow("X Gradient Visual Test", x_display);
+//     waitKey(0);
+
+//     imshow("Y Gradient Visual Test", y_display);
+//     waitKey(0);
+
+//     short int* magnitude;
+//     short int* angle;
+
+//     cuda_sobel_operator(grad_x, grad_y, rows, columns, magnitude, angle);
 // }
