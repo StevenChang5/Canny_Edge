@@ -15,4 +15,6 @@ void cuda_calculate_xy_gradient(short int* img, int height, int width, short int
 
 void cuda_sobel_operator(short int* grad_x, short int* grad_y, int height, int width, short int*& magnitude, short int*& angle);
 
+void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int height, int width, short int*& result);
+
 #endif

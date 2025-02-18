@@ -339,10 +339,126 @@ TEST(CudaSobelOperator, AngleCalculation){
     clear_memory(angle);
 }
 
-// TEST(CudaSobel, Visual_Test){
+TEST(CudaNonmaximal, SuppressionCalculation0){
+    short int* result;
+    int height = 3;
+    int width = 3;
+
+    short int* magnitude;
+    short int* angle;
+    allocate_memory(magnitude, height, width);
+    allocate_memory(angle, height, width);
+
+    short int temp_magnitude[9]{0,0,0,0,10,0,50,20,50};
+    short int temp_angle[9]{0,0,0,0,0,0,0,0,0};
+    
+    for(int i = 0; i < height*width; i++){
+        magnitude[i] = temp_magnitude[i];
+        angle[i] = temp_angle[i];
+    }
+
+    short int expectation[9]{0,0,0,0,10,0,50,0,50};
+  
+    cuda_nonmaixmal_suppression(magnitude,angle,height,width,result);
+  
+    for(int i = 0; i < height*width; i++){
+      EXPECT_EQ(result[i],expectation[i]);
+    }
+  
+    clear_memory(result);
+}
+  
+TEST(CudaNonmaximal, SuppressionCalculation45){
+    short int* result;
+    int height = 3;
+    int width = 3;
+
+    short int* magnitude;
+    short int* angle;
+    allocate_memory(magnitude, height, width);
+    allocate_memory(angle, height, width);
+
+    short int temp_magnitude[9]{0,1,1,0,2,0,1,1,0};
+    short int temp_angle[9]{0,45,45,45,45,45,45,45,0};
+    
+    for(int i = 0; i < height*width; i++){
+        magnitude[i] = temp_magnitude[i];
+        angle[i] = temp_angle[i];
+    }
+
+    short int expectation[9]{0,1,0,0,2,0,0,1,0};
+  
+    cuda_nonmaixmal_suppression(magnitude,angle,height,width,result);
+  
+    for(int i = 0; i < height*width; i++){
+      EXPECT_EQ(result[i],expectation[i]);
+    }
+  
+    clear_memory(result);
+}
+  
+TEST(CudaNonmaximal, SuppressionCalculation90){
+    short int* result;
+    int height = 3;
+    int width = 3;
+
+    short int* magnitude;
+    short int* angle;
+    allocate_memory(magnitude, height, width);
+    allocate_memory(angle, height, width);
+
+    short int temp_magnitude[9]{1,0,0,0,1,0,0,0,1};
+    short int temp_angle[9]{90,90,90,90,90,90,90,90,90};
+    
+    for(int i = 0; i < height*width; i++){
+        magnitude[i] = temp_magnitude[i];
+        angle[i] = temp_angle[i];
+    }
+
+    short int expectation[9]{1,0,0,0,1,0,0,0,1};
+  
+    cuda_nonmaixmal_suppression(magnitude,angle,height,width,result);
+  
+    for(int i = 0; i < height*width; i++){
+      EXPECT_EQ(result[i],expectation[i]);
+    }
+  
+    clear_memory(result);
+}
+  
+TEST(CudaNonmaximal, SuppressionCalculation135){
+    short int* result;
+    int height = 3;
+    int width = 3;
+
+    short int* magnitude;
+    short int* angle;
+    allocate_memory(magnitude, height, width);
+    allocate_memory(angle, height, width);
+
+    short int temp_magnitude[9]{0,1,1,0,2,0,1,1,0};
+    short int temp_angle[9]{135,135,0,135,135,135,0,135,135};
+    
+    for(int i = 0; i < height*width; i++){
+        magnitude[i] = temp_magnitude[i];
+        angle[i] = temp_angle[i];
+    }
+
+    short int expectation[9]{0,1,0,0,2,0,0,1,0};
+  
+    cuda_nonmaixmal_suppression(magnitude,angle,height,width,result);
+  
+    for(int i = 0; i < height*width; i++){
+      EXPECT_EQ(result[i],expectation[i]);
+    }
+  
+    clear_memory(result);
+}
+
+// TEST(CudaNonmaximal, Visual_Test){
 //     std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
 //     Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
-//     short int* result;
+//     short int* blurred;
 //     unsigned char* data = img.data;
 //     float sigma = 0.5;
 //     int rows = 256;
@@ -350,9 +466,9 @@ TEST(CudaSobelOperator, AngleCalculation){
   
 //     int sum = 0;
   
-//     gaussian(data,sigma,rows,columns,result);
+//     gaussian(data,sigma,rows,columns,blurred);
 
-//     Mat gaussianMat(256,256, CV_16S, result);
+//     Mat gaussianMat(256,256, CV_16S, blurred);
 //     Mat gaussian_display;
 
 //     normalize(gaussianMat, gaussian_display, 0, 255, NORM_MINMAX);
@@ -364,7 +480,7 @@ TEST(CudaSobelOperator, AngleCalculation){
 //     short int* grad_x;
 //     short int* grad_y;
 
-//     cuda_calculate_xy_gradient(result, rows, columns, grad_x, grad_y);
+//     cuda_calculate_xy_gradient(blurred, rows, columns, grad_x, grad_y);
 //     Mat xMat(256,256, CV_16S, grad_x);
 //     Mat yMat(256,256, CV_16S, grad_y);
 //     Mat x_display, y_display;
@@ -385,4 +501,16 @@ TEST(CudaSobelOperator, AngleCalculation){
 //     short int* angle;
 
 //     cuda_sobel_operator(grad_x, grad_y, rows, columns, magnitude, angle);
+
+//     short int* result;
+
+//     cuda_nonmaixmal_suppression(magnitude, angle, rows, columns, result);
+//     Mat result_mat(256,256, CV_16S, result);
+//     Mat result_display;
+
+//     normalize(result_mat, result_display, 0, 255, NORM_MINMAX);
+//     result_display.convertTo(result_display, CV_8U);
+
+//     imshow("Nonmaximal Visual Test", result_display);
+//     waitKey(0);
 // }

@@ -239,8 +239,88 @@ void cuda_sobel_operator(short int* grad_x, short int* grad_y, int height, int w
 
     sobel_utility<<<3,512>>>(grad_x, grad_y, height, width, magnitude, angle);
 
+    cudaDeviceSynchronize();
+
     cudaFree(grad_x);
     cudaFree(grad_y);
 }
 
+__global__ void nonmaximal_utility(short int* magnitude, short int* angle, int height, int width, short int* result){
+    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+  
+    int stride_x = blockDim.x * gridDim.x;
+    int stride_y = blockDim.y * gridDim.y;
 
+    for(int col = idx_x; col < width; col += stride_x){
+        for(int row = idx_y; row < height; row += stride_y){
+
+            int idx = row * width + col;
+            bool max = true;
+
+            if(angle[idx] == 0){
+                int left = idx - 1;
+                int right = idx + 1;
+    
+                if((idx%width) > 0){
+                    if(magnitude[idx] <= magnitude[left]){max = false;}
+                }
+                if(idx%width < width-1){
+                    if(magnitude[idx] <= magnitude[right]){max = false;}
+                }
+                if(max){result[idx] = magnitude[idx];}
+                else{result[idx] = NOEDGE;}
+            }   
+            else if(angle[idx] == 45){
+                int upRight = idx + 1 - width;
+                int downLeft = idx - 1 + width;
+    
+                if((idx%width < width-1) && (idx >= height)){
+                    if(magnitude[idx] <= magnitude[upRight]){max = false;}
+                }
+                if((idx%width > 0) && (idx < (height*width)-height)){
+                    if(magnitude[idx] <= magnitude[downLeft]){max = false;}
+                }
+                if(max){result[idx] = magnitude[idx];}
+                else{result[idx] = NOEDGE;}
+            }
+            else if(angle[idx] == 90){
+                int up = idx - width;
+                int down = idx + width;
+    
+                if(idx >= height){
+                    if(magnitude[idx] <= magnitude[up]){max = false;}
+                }
+                if(idx < (height*width)-height){
+                    if(magnitude[idx] <= magnitude[down]){max = false;}
+                }
+                if(max){result[idx] = magnitude[idx];}
+                else{result[idx] = NOEDGE;}
+            } 
+            else if(angle[idx] == 135){
+                int upLeft = idx - 1 - width;
+                int downRight = idx + 1 + width;
+    
+                if((idx%width > 0) && (idx >= height)){
+                    if(magnitude[idx] <= magnitude[upLeft]){max = false;}
+                }
+                if((idx%width < width-1) && (idx < (height*width)-height)){
+                    if(magnitude[idx] <= magnitude[downRight]){max = false;}
+                }
+                if(max){result[idx] = magnitude[idx];}
+                else{result[idx] = NOEDGE;}
+            }
+        }
+    }
+}
+
+void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int height, int width, short int*& result){
+    cudaMallocManaged(&result, height*width*sizeof(short int));
+
+    nonmaximal_utility<<<3,512>>>(magnitude,angle,height,width,result);
+
+    cudaDeviceSynchronize();
+    
+    cudaFree(magnitude);
+    cudaFree(angle);
+}
