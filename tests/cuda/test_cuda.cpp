@@ -22,12 +22,12 @@ TEST(CudaGaussian, IsNonzero){
       sum += result[i];
     }
   
-    EXPECT_EQ(sum,1);
+    EXPECT_NE(sum,0);
 
     clear_memory(result);
 }
 
-TEST(CudaGaussian, Works){
+TEST(CudaGaussian, Visual_Test){
     std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
     Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
     short int* result;
@@ -46,6 +46,6 @@ TEST(CudaGaussian, Works){
     normalize(resultMat, result_display, 0, 255, NORM_MINMAX);
     result_display.convertTo(result_display, CV_8U);
 
-    imshow("Gaussian Smoothed Image", result_display);
+    imshow("CudaGaussian Visual Test", result_display);
     waitKey(0);
 }

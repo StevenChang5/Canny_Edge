@@ -83,7 +83,7 @@ void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*
         shared_img[i] = img[i];
     }
 
-    gaussian_util<<<1,1>>>(shared_img, sigma, window, rows, columns, kernel, temp_img, result);
+    gaussian_util<<<3,256>>>(shared_img, sigma, window, rows, columns, kernel, temp_img, result);
 
     cudaDeviceSynchronize();
 
