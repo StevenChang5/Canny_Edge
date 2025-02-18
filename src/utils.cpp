@@ -1,9 +1,12 @@
 #include "utils.h"
+#include <opencv2/opencv.hpp>
 
+#include <chrono>
 #include <iostream>
 #include <cmath>
 #include <queue>
 
+using namespace cv;
 using namespace std;
 
 /*************************************************************************
@@ -418,4 +421,71 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
         }
         pixels.pop();
     }
+}
+
+void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width){
+    short int* smoothed_img;    // Image blurred by a Gaussian filter
+    short int* magnitude;       // Magnitude of edges, calculated as sqrt(grad_x^2 + grad_y^2)
+    short int* angle;           // Angle/direction of edges, calculated as arctan2(grad_y, grad_x)
+    short int* nonmaximal;      // Edges w/ nonmaximal suppression applied to neighbors in angle direction
+
+    auto start = chrono::high_resolution_clock::now();
+
+    // Apply gaussian blurring
+    gaussian(img,sigma,height,width,smoothed_img);
+
+    if(STEPS){
+        Mat smoothedMat(height,width, CV_16S, smoothed_img);
+        Mat smoothed_display;
+
+        normalize(smoothedMat, smoothed_display, 0, 255, NORM_MINMAX);
+        smoothed_display.convertTo(smoothed_display, CV_8U);
+
+        imshow("Gaussian Smoothed Image", smoothed_display);
+        waitKey(0);
+    }
+
+    // Use sobel operator to find magintude and direction of gradient
+    sobelOperator(smoothed_img, height, width, magnitude, angle);
+
+    if(STEPS){
+        Mat gradientMat(height,width, CV_16S, magnitude);
+        Mat gradient_display;
+        normalize(gradientMat, gradient_display, 0, 255, NORM_MINMAX);
+        gradient_display.convertTo(gradient_display, CV_8U);
+
+        imshow("Edge Image", gradient_display);
+        waitKey(0);
+    }
+
+    // Apply nonmaximal suppression to sharpen edges
+    nonmaximalSuppression(magnitude, angle, height, width, nonmaximal);
+
+    if(STEPS){
+        Mat suppressMat(height,width, CV_16S, nonmaximal);
+        Mat suppress_display;
+        normalize(suppressMat, suppress_display, 0, 255, NORM_MINMAX);
+        suppress_display.convertTo(suppress_display, CV_8U);
+
+        imshow("Nonmaximal Image", suppress_display);
+        waitKey(0);
+    }
+
+    // Use hysteresis to keep pixels with intensities within the given thresholds
+    hysteresis(nonmaximal, height, width, minVal, maxVal);
+    auto stop = chrono::high_resolution_clock::now();
+    // Display final image with canny edge detection applied to it
+    Mat finalMat(height,width, CV_16S, nonmaximal);
+    Mat final_display;
+    normalize(finalMat, final_display, 0, 255, NORM_MINMAX);
+    final_display.convertTo(final_display, CV_8U);
+    imshow("Nonmaximal Image", final_display);
+    waitKey(0);
+
+    chrono::duration<double> duration = stop - start;
+    cout << "Execution time: " << duration.count() << " seconds\n";
+
+    delete[] magnitude;
+    delete[] angle;
+    delete[] nonmaximal;
 }

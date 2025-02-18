@@ -1,7 +1,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define STEPS 0
+#define STEPS 1
 
 #define PI 3.1415926535
 #define EDGE 255
