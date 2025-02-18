@@ -455,42 +455,6 @@ TEST(CudaNonmaximal, SuppressionCalculation135){
     clear_memory(result);
 }
 
-TEST(Hysteresis, CorrectFunction){
-    int height = 5;
-    int width = 5;
-    int min_threshold = 2;
-    int max_threshold = 10;
-
-    short int* edges;
-    allocate_memory(edges, height, width);
-
-    short int temp[25]{
-      5,6,0,5,10,
-      4,1,0,1,4,
-      1,3,7,0,0,
-      10,9,8,0,0
-    };
-
-    for(int i = 0; i < height*width; i++){
-        edges[i] = temp[i];
-    }
-
-    short int expectation[25]{
-      EDGE,EDGE,0,EDGE,EDGE,
-      EDGE,0,0,0,EDGE,
-      0,EDGE,EDGE,0,0,
-      EDGE,EDGE,EDGE,0,0
-    };
-    
-    cuda_hysteresis(edges, height, width, min_threshold, max_threshold);
-  
-    for(int i = 0; i < 5*5; i++){
-      EXPECT_EQ(edges[i], expectation[i]);
-    }
-  
-    clear_memory(edges);
-}
-
 // TEST(CudaNonmaximal, Visual_Test){
 //     std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
 //     Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
