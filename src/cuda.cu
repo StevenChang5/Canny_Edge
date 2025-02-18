@@ -23,42 +23,47 @@ void createGaussianKernel(float*& kernel , float sigma, int window){
     }
 }
 
-__global__ void gaussian_util(unsigned char* img, float sigma, int window, int rows, int columns, float*& kernel, float* temp_img, short int* result){
+__global__ void gaussian_util(unsigned char* img, float sigma, int window, int height, int width, float* kernel, float* temp_img, short int* result){
     int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-    int idx = idx_y * columns + idx_x;
-    int stride = blockDim.x * gridDim.x;
+  
+    int stride_x = blockDim.x * gridDim.x;
+    int stride_y = blockDim.y * gridDim.y;
     
     int center = window/2;
 
     // Blur in the x direction
-    for(int i = idx; i < rows * columns; i+= stride){
-        float sum = 0;
-        float count = 0;
-        for(int k = -center; k < (center + 1); k++){
-            if(((i+k)%columns >= 0) and (i+k)%columns < columns){
-                sum += (float(img[idx + k]) * kernel[center + k]);
-                count += kernel[center+k];
+    for(int row = idx_y; row < height; row += stride_y){
+        for(int col = idx_x; col < width; col += stride_x){
+            int idx = col * width + row;
+            float sum = 0;
+            float count = 0;
+            for(int k = -center; k < (center + 1); k++){
+                if(((col+k) >= 0) and (col+k) < width){
+                    sum += ((float)(img[idx+k]) * kernel[center+k]);
+                    count += kernel[center+k];
+                }
             }
+            temp_img[idx] = (sum/count);
         }
-        temp_img[idx] = sum/count;
     }
     __syncthreads();
 
     // Blur in the y direction
-    for(int i = idx; i < rows * columns; i += stride){
-        float sum = 0;
-        float count = 0;
-        for(int k = -center; k < (center + 1); k++){
-            if(((i+(k*columns)) >= columns) and ((i+(k*columns)) < (rows*columns)-columns)){
-                sum += (float(temp_img[i+(k*columns)]) * kernel[center+k]);
-                count += kernel[center+k];
+    for(int col = idx_x; col < width; col += stride_x){
+        for(int row = idx_y; row < height; row += stride_y){
+            int idx = col * width + row;
+            float sum = 0;
+            float count = 0;
+            for(int k = -center; k < (center + 1); k++){
+                if(((row + k) >= 0) and ((row + k) < height)){
+                    sum += ((float)(temp_img[idx + (k*width)]) * kernel[center+k]);
+                    count += kernel[center+k];
+                }
             }
+            result[idx] = (short int)(sum/count);
         }
-        result[idx] = (short int)(sum/count);
     }
-
-    __syncthreads();
 }
 
 void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*& result){
@@ -77,11 +82,10 @@ void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*
     for(int i = 0; i < rows*columns; i++){
         shared_img[i] = img[i];
     }
-    std::cout << kernel[0] << " " << kernel[1] << std::endl;
 
     gaussian_util<<<1,1>>>(shared_img, sigma, window, rows, columns, kernel, temp_img, result);
 
-    std::cout << result[0] << std::endl;
+    cudaDeviceSynchronize();
 
     cudaFree(shared_img);
     cudaFree(temp_img);
