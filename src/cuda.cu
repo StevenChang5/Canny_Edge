@@ -1,8 +1,12 @@
 // cuda.cu
 #include "cuda.h"
-#include <iostream>
-#include <queue>
+#include "utils.h"
+#include <opencv2/opencv.hpp>
 
+#include <chrono>
+#include <iostream>
+
+using namespace cv;
 using namespace std;
 
 void allocate_memory(short int*& pointer, int height, int width){
@@ -73,7 +77,7 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
     }
 }
 
-void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*& result){
+void cuda_gaussian(unsigned char* img, float sigma, int rows, int columns, short int*& result){
     unsigned char* shared_img;
     float* temp_img; 
     int window = 1 + 2 * ceil(3 * sigma);
@@ -327,3 +331,73 @@ void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int hei
     cudaFree(magnitude);
     cudaFree(angle);
 }
+
+void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width){
+    short int* smoothed_img;    // Image blurred by a Gaussian filter
+    short int* grad_x;
+    short int* grad_y;
+    short int* magnitude;       // Magnitude of edges, calculated as sqrt(grad_x^2 + grad_y^2)
+    short int* angle;           // Angle/direction of edges, calculated as arctan2(grad_y, grad_x)
+    short int* nonmaximal;      // Edges w/ nonmaximal suppression applied to neighbors in angle direction
+
+    cuda_gaussian(img,sigma,height,height,smoothed_img);
+
+    if(STEPS){
+        Mat gaussianMat(256,256, CV_16S, smoothed_img);
+        Mat gaussian_display;
+
+        normalize(gaussianMat, gaussian_display, 0, 255, NORM_MINMAX);
+        gaussian_display.convertTo(gaussian_display, CV_8U);
+
+        imshow("CudaGaussian Visual Test", gaussian_display);
+        waitKey(0);
+    }
+
+    cuda_calculate_xy_gradient(smoothed_img, height, height, grad_x, grad_y);
+
+    if(STEPS){
+        Mat xMat(256,256, CV_16S, grad_x);
+        Mat yMat(256,256, CV_16S, grad_y);
+        Mat x_display, y_display;
+
+        normalize(xMat, x_display, 0, 255, NORM_MINMAX);
+        x_display.convertTo(x_display, CV_8U);
+
+        normalize(yMat, y_display, 0, 255, NORM_MINMAX);
+        y_display.convertTo(y_display, CV_8U);
+
+        imshow("X Gradient Visual Test", x_display);
+        waitKey(0);
+
+        imshow("Y Gradient Visual Test", y_display);
+        waitKey(0);
+
+    }
+    
+    cuda_sobel_operator(grad_x, grad_y, height, height, magnitude, angle);
+    cuda_nonmaixmal_suppression(magnitude, angle, height, height, nonmaximal);
+
+    if(STEPS){
+        Mat result_mat(256,256, CV_16S, nonmaximal);
+        Mat result_display;
+
+        normalize(result_mat, result_display, 0, 255, NORM_MINMAX);
+        result_display.convertTo(result_display, CV_8U);
+
+        imshow("Nonmaximal Visual Test", result_display);
+        waitKey(0);
+    }
+
+    hysteresis(nonmaximal, height, width, minVal, maxVal);
+
+    // Display final image with canny edge detection applied to it
+    Mat finalMat(height,width, CV_16S, nonmaximal);
+    Mat final_display;
+    normalize(finalMat, final_display, 0, 255, NORM_MINMAX);
+    final_display.convertTo(final_display, CV_8U);
+    imshow("Nonmaximal Image", final_display);
+    waitKey(0);
+
+    clear_memory(nonmaximal);
+}
+    

@@ -20,4 +20,7 @@ void nonmaximalSuppression(short int*& grad, short int *& angle, int rows, int c
 void hysteresis(short int*& edgeCandidates, int rows, int columns, int minVal, int maxVal);
 
 void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int minVal, int maxVal, int rows, int columns);
+
+void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width);
+
 #endif

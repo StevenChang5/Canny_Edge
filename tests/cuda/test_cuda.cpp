@@ -3,10 +3,11 @@
 #include <src/cuda.h>
 
 using namespace cv;
+using namespace std;
 
 TEST(CudaGaussian, IsNonzero){
-    std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
-    Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
+    string image_path = string(PROJECT_DIR) + "/tests/test.jpg";
+    Mat img = imread(image_path, IMREAD_GRAYSCALE);
     short int* result;
     unsigned char* data = img.data;
     float sigma = 0.5;
@@ -15,10 +16,10 @@ TEST(CudaGaussian, IsNonzero){
   
     int sum = 0;
   
-    gaussian(data,sigma,rows,columns,result);
+    cuda_gaussian(data,sigma,rows,columns,result);
   
     for(int i = 0; i < (rows*columns); i++){
-      std::cout << result[i] << " ";
+      cout << result[i] << " ";
       sum += result[i];
     }
   
@@ -28,8 +29,8 @@ TEST(CudaGaussian, IsNonzero){
 }
 
 TEST(CudaGaussian, InRange){
-    std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
-    Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
+    string image_path = string(PROJECT_DIR) + "/tests/test.jpg";
+    Mat img = imread(image_path, IMREAD_GRAYSCALE);
     short int* result;
     unsigned char* data = img.data;
     float sigma = 0.5;
@@ -38,7 +39,7 @@ TEST(CudaGaussian, InRange){
   
     int sum = 0;
   
-    gaussian(data,sigma,rows,columns,result);
+    cuda_gaussian(data,sigma,rows,columns,result);
   
     for(int i = 0; i < (rows*columns); i++){
       EXPECT_LE(result[i], 255);
@@ -49,8 +50,8 @@ TEST(CudaGaussian, InRange){
 }
   
 TEST(CudaGaussian, GaussianDimensions){
-    std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
-    Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
+    string image_path = string(PROJECT_DIR) + "/tests/test.jpg";
+    Mat img = imread(image_path, IMREAD_GRAYSCALE);
     short int* result;
     unsigned char* data = img.data;
     float sigma = 0.5;
@@ -59,7 +60,7 @@ TEST(CudaGaussian, GaussianDimensions){
   
     int sum = 0;
   
-    gaussian(data,sigma,rows,columns,result);
+    cuda_gaussian(data,sigma,rows,columns,result);
 
     Mat smoothedMat(rows, columns, CV_16S, result);
     EXPECT_EQ(smoothedMat.rows, rows);
@@ -69,8 +70,8 @@ TEST(CudaGaussian, GaussianDimensions){
 }
 
 // TEST(CudaGaussian, Visual_Test){
-//     std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
-//     Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
+//     string image_path = string(PROJECT_DIR) + "/tests/test.jpg";
+//     Mat img = imread(image_path, IMREAD_GRAYSCALE);
 //     short int* result;
 //     unsigned char* data = img.data;
 //     float sigma = 0.5;
@@ -141,7 +142,7 @@ TEST(CudaGradient, GradientDimensions){
   
     for(int i = 0; i < 9; i++){
       EXPECT_EQ(grad_x[i],expected[i]);
-      if(grad_x[i] != expected[i]){ std::cout << "X " << i << std::endl;}
+      if(grad_x[i] != expected[i]){ cout << "X " << i << endl;}
     }
   
     clear_memory(grad_x);
@@ -169,7 +170,7 @@ TEST(CudaGradient, GradientDimensions){
   
     for(int i = 0; i < 9; i++){
       EXPECT_EQ(grad_y[i],expected[i]);
-      if(grad_y[i] != expected[i]){ std::cout << "Y " << i << std::endl;}
+      if(grad_y[i] != expected[i]){ cout << "Y " << i << endl;}
     }
   
     clear_memory(grad_x);
@@ -233,8 +234,8 @@ TEST(CudaGradient, GradientDimensions){
   }
 
 // TEST(CudaXY, Visual_Test){
-//     std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
-//     Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
+//     string image_path = string(PROJECT_DIR) + "/tests/test.jpg";
+//     Mat img = imread(image_path, IMREAD_GRAYSCALE);
 //     short int* result;
 //     unsigned char* data = img.data;
 //     float sigma = 0.5;
@@ -456,8 +457,8 @@ TEST(CudaNonmaximal, SuppressionCalculation135){
 }
 
 // TEST(CudaNonmaximal, Visual_Test){
-//     std::string image_path = std::string(PROJECT_DIR) + "/tests/test.jpg";
-//     Mat img = cv::imread(image_path, IMREAD_GRAYSCALE);
+//     string image_path = string(PROJECT_DIR) + "/tests/test.jpg";
+//     Mat img = imread(image_path, IMREAD_GRAYSCALE);
 //     short int* blurred;
 //     unsigned char* data = img.data;
 //     float sigma = 0.5;

@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
     float sigma = atof(argv[1]);
     int minVal = atof(argv[2]);
     int maxVal = atof(argv[3]);
+    bool use_cuda = true;
 
     VideoCapture cap;
 
@@ -82,7 +83,13 @@ int main(int argc, char* argv[]) {
         imshow("Camera Feed", frames[i]);
         waitKey(0);
 
-        canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols);
+        if(use_cuda){
+            cuda_canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols);
+        }
+        else{
+            canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols);
+        }
+        
     }
 
     return 0;

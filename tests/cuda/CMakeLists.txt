@@ -9,14 +9,10 @@ target_include_directories(
     ${PROJECT_SOURCE_DIR}
 )
 
-add_library(
-    cu ../../src/cuda.cu
-)
-
 target_link_libraries(
   test_cuda
   GTest::gtest_main
-  cu
+  cuda
   ${OpenCV_LIBS}
   ${CUDA_LIBRARIES}
 )
