@@ -35,7 +35,7 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
     // Blur in the x direction
     for(int row = idx_y; row < height; row += stride_y){
         for(int col = idx_x; col < width; col += stride_x){
-            int idx = col * width + row;
+            int idx = row * width + col;
             float sum = 0;
             float count = 0;
             for(int k = -center; k < (center + 1); k++){
@@ -52,7 +52,7 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
     // Blur in the y direction
     for(int col = idx_x; col < width; col += stride_x){
         for(int row = idx_y; row < height; row += stride_y){
-            int idx = col * width + row;
+            int idx = row * width + col;
             float sum = 0;
             float count = 0;
             for(int k = -center; k < (center + 1); k++){
