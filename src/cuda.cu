@@ -192,7 +192,9 @@ void cuda_calculate_xy_gradient(short int* img, int height, int width, short int
     cudaMallocManaged(&grad_y, height*width*sizeof(short int));
 
     xy_utility<<<3,512>>>(img, height, width, grad_x, grad_y);
-
+    
+    cudaDeviceSynchronize();
+    
     cudaFree(img);
 }
 
