@@ -16,7 +16,7 @@ add_library(
 target_link_libraries(
   test_cuda
   GTest::gtest_main
-  utils
+  cu
   ${OpenCV_LIBS}
   ${CUDA_LIBRARIES}
 )
