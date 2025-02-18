@@ -17,4 +17,6 @@ void cuda_sobel_operator(short int* grad_x, short int* grad_y, int height, int w
 
 void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int height, int width, short int*& result);
 
+void cuda_hysteresis(short int*& edges, int height, int width, int min_threshold, int max_threshold);
+
 #endif
