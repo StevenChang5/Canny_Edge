@@ -5,7 +5,7 @@
 #define EDGE 255
 #define NOEDGE 0
 
-void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*& result);
+void gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result);
 
 void createGaussianKernel(float*& kernel, float sigma, int* window);
 

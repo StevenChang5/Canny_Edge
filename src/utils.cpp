@@ -23,7 +23,7 @@ using namespace std;
  *      columns: width of input/output image
  *      result: output in the form of grayscale image, 1D array
  ************************************************************************/
-void gaussian(unsigned char* img, float sigma, int rows, int columns, short int*& result){
+void gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result){
     float* kernel;
     int window;
 
@@ -232,6 +232,7 @@ void sobelOperator(short int*& img, int rows, int columns, short int*& magnitude
     }
     delete[] grad_x;
     delete[] grad_y;
+    delete[] img;
 }
 
 /*************************************************************************
@@ -266,10 +267,10 @@ void nonmaximalSuppression(short int*& magnitude, short int *& angle, int rows, 
             int upRight = i + 1 - columns;
             int downLeft = i - 1 + columns;
 
-            if((i%columns < columns-1) && (i >= rows)){
+            if((i%columns < columns-1) && (i - columns >= 0)){
                 if(magnitude[i] <= magnitude[upRight]){max = false;}
             }
-            if((i%columns > 0) && (i < (rows*columns)-rows)){
+            if((i%columns > 0) && (i + columns < (rows*columns))){
                 if(magnitude[i] <= magnitude[downLeft]){max = false;}
             }
             if(max){result[i] = magnitude[i];}
@@ -279,10 +280,10 @@ void nonmaximalSuppression(short int*& magnitude, short int *& angle, int rows, 
             int up = i - columns;
             int down = i + columns;
 
-            if(i >= rows){
+            if(i - columns >= 0){
                 if(magnitude[i] <= magnitude[up]){max = false;}
             }
-            if(i < (rows*columns)-rows){
+            if(i + columns < (rows*columns)){
                 if(magnitude[i] <= magnitude[down]){max = false;}
             }
             if(max){result[i] = magnitude[i];}
@@ -292,16 +293,18 @@ void nonmaximalSuppression(short int*& magnitude, short int *& angle, int rows, 
             int upLeft = i - 1 - columns;
             int downRight = i + 1 + columns;
 
-            if((i%columns > 0) && (i >= rows)){
+            if((i%columns > 0) && (i - columns >= 0)){
                 if(magnitude[i] <= magnitude[upLeft]){max = false;}
             }
-            if((i%columns < columns-1) && (i < (rows*columns)-rows)){
+            if((i%columns < columns-1) && (i + columns < (rows*columns))){
                 if(magnitude[i] <= magnitude[downRight]){max = false;}
             }
             if(max){result[i] = magnitude[i];}
             else{result[i] = NOEDGE;}
         }
     }
+    delete[] magnitude;
+    delete[] angle;
 }
 
 /*************************************************************************
@@ -365,14 +368,14 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
         edgeCandidates[current] = EDGE;
         if(current%columns > 0){
             // Check pixel to the bottom left
-            if(current < (rows*columns)-rows){
+            if(current + columns < (rows*columns)){
                 if(edgeCandidates[current+columns - 1] >= minVal && !visited[current+columns-1]){
                     pixels.push(current+columns-1);
                     visited[current+columns-1] = true;
                 }
             }
             // Check pixel to the top left
-            if(current >= rows){
+            if(current - columns > 0){
                 if(edgeCandidates[current-columns-1] >= minVal && !visited[current-columns-1]){
                     pixels.push(current-columns-1);
                     visited[current-columns-1] = true;
@@ -386,14 +389,14 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
         }
         if(current%columns < columns-1){
             // Check pixel to the bottom right
-            if(current < (rows*columns)-rows){
+            if(current + columns < (rows*columns)){
                 if(edgeCandidates[current+columns+1] >= minVal && !visited[current+columns+1]){
                     pixels.push(current+columns+1);
                     visited[current+columns+1] = true;
                 }
             }
             // Check pixel to the top right
-            if(current >= rows){
+            if(current - columns > 0){
                 if(edgeCandidates[current-columns+1] >= minVal && !visited[current-columns+1]){
                     pixels.push(current-columns+1);
                     visited[current-columns+1] = true;
@@ -406,14 +409,14 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
             }
         }
         // Check pixel below
-        if(current < (rows*columns)-rows){
+        if(current + columns < (rows*columns)){
             if(edgeCandidates[current+columns] >= minVal && !visited[current+columns]){
                 pixels.push(current+columns);
                 visited[current+columns] = true;
             }
         }
         // Check pixel above
-        if(current >= rows){
+        if(current - columns >= 0){
             if(edgeCandidates[current-columns] >= minVal && !visited[current-columns]){
                 pixels.push(current-columns);
                 visited[current-columns] = true;
@@ -485,7 +488,5 @@ void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, 
     chrono::duration<double> duration = stop - start;
     cout << "Execution time: " << duration.count() << " seconds\n";
 
-    delete[] magnitude;
-    delete[] angle;
     delete[] nonmaximal;
 }
