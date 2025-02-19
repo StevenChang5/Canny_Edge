@@ -12,7 +12,7 @@ To build the program, run the following commands:
 cmake -S . -B build
 cmake --build build
 ```
-To enable cuda during:
+To enable cuda/multithreading:
 ```
 cmake -D ENABLE_CUDA=ON build
 ```
@@ -23,8 +23,8 @@ cd build/src
 ```
 **Parameters:**
 * sigma: the standard deviation used by the gaussian blurring function to generate the gaussian kernel
-* minVal: the minimum value for a pixel during the hysteresis step
-* maxVal: the maximum value for a pixel during the hysteresis step
+* minVal: the minimum value for a pixel during the hysteresis step (0-255)
+* maxVal: the maximum value for a pixel during the hysteresis step (0-255)
 * -s: show steps of process
 * -c: use cuda functions if cuda is enabled
 ## Example
