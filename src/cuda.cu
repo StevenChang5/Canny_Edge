@@ -340,10 +340,10 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     short int* angle;           // Angle/direction of edges, calculated as arctan2(grad_y, grad_x)
     short int* nonmaximal;      // Edges w/ nonmaximal suppression applied to neighbors in angle direction
 
-    cuda_gaussian(img,sigma,height,height,smoothed_img);
+    cuda_gaussian(img,sigma,height,width,smoothed_img);
 
     if(STEPS){
-        Mat gaussianMat(256,256, CV_16S, smoothed_img);
+        Mat gaussianMat(height,width, CV_16S, smoothed_img);
         Mat gaussian_display;
 
         normalize(gaussianMat, gaussian_display, 0, 255, NORM_MINMAX);
@@ -353,32 +353,26 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
         waitKey(0);
     }
 
-    cuda_calculate_xy_gradient(smoothed_img, height, height, grad_x, grad_y);
+    cuda_calculate_xy_gradient(smoothed_img, height, width, grad_x, grad_y);
 
-    if(STEPS){
-        Mat xMat(256,256, CV_16S, grad_x);
-        Mat yMat(256,256, CV_16S, grad_y);
-        Mat x_display, y_display;
-
-        normalize(xMat, x_display, 0, 255, NORM_MINMAX);
-        x_display.convertTo(x_display, CV_8U);
-
-        normalize(yMat, y_display, 0, 255, NORM_MINMAX);
-        y_display.convertTo(y_display, CV_8U);
-
-        imshow("X Gradient Visual Test", x_display);
-        waitKey(0);
-
-        imshow("Y Gradient Visual Test", y_display);
-        waitKey(0);
-
-    }
     
-    cuda_sobel_operator(grad_x, grad_y, height, height, magnitude, angle);
-    cuda_nonmaixmal_suppression(magnitude, angle, height, height, nonmaximal);
+    
+    cuda_sobel_operator(grad_x, grad_y, height, width, magnitude, angle);
 
     if(STEPS){
-        Mat result_mat(256,256, CV_16S, nonmaximal);
+        Mat sobel_mat(height,width, CV_16S, magnitude);
+        Mat sobel_display;
+
+        normalize(sobel_mat, sobel_display, 0, 255, NORM_MINMAX);
+        sobel_display.convertTo(sobel_display, CV_8U);
+
+        imshow("Sobel Visual Test", sobel_display);
+        waitKey(0);
+    }
+    cuda_nonmaixmal_suppression(magnitude, angle, height, width, nonmaximal);
+
+    if(STEPS){
+        Mat result_mat(height,width, CV_16S, nonmaximal);
         Mat result_display;
 
         normalize(result_mat, result_display, 0, 255, NORM_MINMAX);
@@ -395,7 +389,7 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     Mat final_display;
     normalize(finalMat, final_display, 0, 255, NORM_MINMAX);
     final_display.convertTo(final_display, CV_8U);
-    imshow("Nonmaximal Image", final_display);
+    imshow("Final Image", final_display);
     waitKey(0);
 
     clear_memory(nonmaximal);
