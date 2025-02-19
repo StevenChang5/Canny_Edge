@@ -1,8 +1,6 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define STEPS 0
-
 #define PI 3.1415926535
 #define EDGE 255
 #define NOEDGE 0
@@ -20,4 +18,7 @@ void nonmaximalSuppression(short int*& grad, short int *& angle, int rows, int c
 void hysteresis(short int*& edgeCandidates, int rows, int columns, int minVal, int maxVal);
 
 void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int minVal, int maxVal, int rows, int columns);
+
+void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps);
+
 #endif

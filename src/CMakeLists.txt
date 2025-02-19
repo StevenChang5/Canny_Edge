@@ -1,14 +1,26 @@
 include_directories(${OpenCV_INCLUDE_DIRECTORIES})
-add_executable(Main main.cpp)
+
+add_executable(main main.cpp)
+
+add_library(utils utils.cpp)
+
+target_link_libraries(utils PRIVATE ${OpenCV_LIBS})
+
+if(ENABLE_CUDA)
+  add_library(cuda cuda.cu)
+  target_link_libraries(cuda PRIVATE ${OpenCV_LIBS} utils)
+  target_link_libraries(main PRIVATE ${OpenCV_LIBS} utils cuda)
+else()
+  target_link_libraries(main PRIVATE ${OpenCV_LIBS} utils)
+endif()
+
+
 target_include_directories(
-  Main
+  main
   PUBLIC
   ${PROJECT_SOURCE_DIR}
 )
-if(CMAKE_SYSTEM_PROCESSOR STREQUAL "arm72")
-  message(STATUS "Configuring for Raspberry Pi")
-  target_compile_options(Main PRIVATE -I. $<SHELL_COMMAND:pkg-config --cflags opencv4>)
-  target_link_libraries(Main PRIVATE utils $<SHELL_COMMAND:pkg-config --libs opencv4>)
-else()
-  target_link_libraries(Main PRIVATE utils ${OpenCV_LIBS})
-endif()
+
+
+
+
