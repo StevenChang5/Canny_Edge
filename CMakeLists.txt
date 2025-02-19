@@ -3,12 +3,7 @@ project(CannyEdge)
 
 option(ENABLE_CUDA ON)
 if(ENABLE_CUDA)
-    find_package(CUDA QUIET)
-    if(CUDA_FOUND)
-        enable_language(CUDA)
-    else()
-        set(ENABLE_CUDA OFF)
-    endif()
+    enable_language(CUDA)
 endif()
 
 # Set C++ Standard
