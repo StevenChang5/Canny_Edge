@@ -286,8 +286,6 @@ TEST(NonmaximalSuppression, SuppressionCalculation0){
     EXPECT_EQ(suppress[i],expectation[i]);
   }
 
-  delete[] grad;
-  delete[] angle;
   delete[] suppress;
 }
 
@@ -307,8 +305,6 @@ TEST(NonmaximalSuppression, SuppressionCalculation45){
     EXPECT_EQ(suppress[i],expectation[i]);
   }
 
-  delete[] grad;
-  delete[] angle;
   delete[] suppress;
 }
 
@@ -328,8 +324,6 @@ TEST(NonmaximalSuppression, SuppressionCalculation90){
     EXPECT_EQ(suppress[i],expectation[i]);
   }
 
-  delete[] grad;
-  delete[] angle;
   delete[] suppress;
 }
 
@@ -348,9 +342,7 @@ TEST(NonmaximalSuppression, SuppressionCalculation135){
   for(int i = 0; i < rows*columns; i++){
     EXPECT_EQ(suppress[i],expectation[i]);
   }
-
-  delete[] grad;
-  delete[] angle;
+  
   delete[] suppress;
 }
 

@@ -11,7 +11,7 @@ using namespace std;
 
 /*************************************************************************
  * NOTE: pixels of Mat.data are represented as a single array, and access
- *       to a pixel at (r, c) is given by Mat.data[r * columns + c]
+ *       to a pixel at (r, c) is given by Mat.data[r * width + c]
  ************************************************************************/
 
 /*************************************************************************
@@ -19,47 +19,47 @@ using namespace std;
  * PARAMETERS:
  *      img: input in the form of grayscale image, 1D array from Mat.data 
  *      sigma: standard deviation used in gaussian kernel
- *      rows: height of input/output image
- *      columns: width of input/output image
+ *      height: height of input/output image
+ *      width: width of input/output image
  *      result: output in the form of grayscale image, 1D array
  ************************************************************************/
-void gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result){
+void gaussian(unsigned char*& img, float sigma, int height, int width, short int*& result){
     float* kernel;
     int window;
 
     createGaussianKernel(kernel,sigma,&window);
 
     int center = window/2;
-    float* temp_img = new float[rows*columns];
-    result = new short int[rows*columns];
+    float* temp_img = new float[height*width];
+    result = new short int[height*width];
 
     // Blur in the x direction
-    for(int i = 0; i < rows; i++){
-        for(int j = 0; j < columns; j++){
+    for(int i = 0; i < height; i++){
+        for(int j = 0; j < width; j++){
             float sum = 0;
             float count = 0;
             for(int k = -center; k < (center+1); k++){
-                if((j+k >= 0) and (j+k < columns)){
-                    sum += (float(img[i * columns + (j+k)]) * kernel[center+k]);
+                if((j+k >= 0) and (j+k < width)){
+                    sum += (float(img[i * width + (j+k)]) * kernel[center+k]);
                     count += kernel[center+k];
                 }
             }
-            temp_img[i * columns + j] = (sum/count);
+            temp_img[i * width + j] = (sum/count);
         }
     }
 
     // Blur in the y direction
-    for(int i = 0; i < columns; i++){
-        for(int j = 0; j < rows; j++){
+    for(int i = 0; i < width; i++){
+        for(int j = 0; j < height; j++){
             float sum = 0;
             float count = 0; 
             for(int k = -center; k<(center+1); k++){
-                if((j+k >= 0) and (j+k < rows)){
-                    sum += (float(temp_img[(j+k) * columns + i]) * kernel[center+k]);
+                if((j+k >= 0) and (j+k < height)){
+                    sum += (float(temp_img[(j+k) * width + i]) * kernel[center+k]);
                     count += kernel[center+k];
                 }
             }
-            result[j * columns + i] = (short int)(sum/count);
+            result[j * width + i] = (short int)(sum/count);
         }   
     }
 
@@ -98,53 +98,53 @@ void createGaussianKernel(float*& kernel , float sigma, int* window){
  * FUNCTION: calculates derivative of the image in the x and y directions
  * PARAMETERS:
  *      img: input image, smoothed by gaussian blurring
- *      rows: height of input/output image
- *      columns: width of input/output image
+ *      height: height of input/output image
+ *      width: width of input/output image
  *      grad_x: gradient of each pixel in the x direction
  *      grad_y: gradient of each pixel in the y direction
  ************************************************************************/
-void calculateXYGradient(short int*& img, int rows, int columns, short int*& grad_x, short int*& grad_y){
-    grad_x = new short int[rows * columns];
-    grad_y = new short int[rows * columns];
+void calculateXYGradient(short int*& img, int height, int width, short int*& grad_x, short int*& grad_y){
+    grad_x = new short int[height * width];
+    grad_y = new short int[height * width];
 
     // Gradient in the x direction, filter in the form of:
     // -1   0   1
     // -2   0   2
     // -1   0   1
-    for(int r = 0; r < rows; r++){
-        int pos = r * columns;
-        // Leftmost column, all rows; pad out of bounds with border values
+    for(int r = 0; r < height; r++){
+        int pos = r * width;
+        // Leftmost column, all height; pad out of bounds with border values
         grad_x[pos] = (2 * img[pos+1]) - (2 * img[pos]);
         // include row above
-        if(r != rows-1){
-            grad_x[pos] += (img[pos+columns+1] - img[pos+columns]);
+        if(r != height-1){
+            grad_x[pos] += (img[pos+width+1] - img[pos+width]);
         }
         // include row below
         if(r != 0){
-            grad_x[pos] += (img[pos-columns+1] - img[pos-columns]);
+            grad_x[pos] += (img[pos-width+1] - img[pos-width]);
         }
         pos++;
 
         // Middle, non-border pixels
-        for(int c = 1; c < columns-1; c++, pos++){
+        for(int c = 1; c < width-1; c++, pos++){
             grad_x[pos] = (2 * img[pos+1]) - (2 * img[pos-1]);
-            if(r != rows-1){
-                grad_x[pos] += (img[pos+columns+1] - img[pos+columns-1]);
+            if(r != height-1){
+                grad_x[pos] += (img[pos+width+1] - img[pos+width-1]);
             }
             if(r != 0){
-                grad_x[pos] += (img[pos-columns+1] - img[pos-columns-1]);
+                grad_x[pos] += (img[pos-width+1] - img[pos-width-1]);
             }
         }
 
-        // Rightmost column, all rows; pad out of bounds with border values
+        // Rightmost column, all height; pad out of bounds with border values
         grad_x[pos] = (2 * img[pos]) - (2 * img[pos-1]);
         // include row below
-        if(r != rows-1){
-            grad_x[pos] += (img[pos+columns] - img[pos+columns-1]);
+        if(r != height-1){
+            grad_x[pos] += (img[pos+width] - img[pos+width-1]);
         }
         // include row above
         if(r != 0){
-            grad_x[pos] += (img[pos-columns] - img[pos-columns-1]);
+            grad_x[pos] += (img[pos-width] - img[pos-width-1]);
         }
     }
 
@@ -152,36 +152,36 @@ void calculateXYGradient(short int*& img, int rows, int columns, short int*& gra
     //  1   2   1
     //  0   0   0
     // -1  -2  -1
-    for(int c = 0; c < columns; c++){
+    for(int c = 0; c < width; c++){
         int pos = c;
-        // Topmost row, all columns; pad out of bounds with border values
-        grad_y[pos] = (2 * img[pos+columns]) - (2 * img[pos]);
-        if(c != columns-1){
-            grad_y[pos] += (img[pos+columns+1]-img[pos+1]);
+        // Topmost row, all width; pad out of bounds with border values
+        grad_y[pos] = (2 * img[pos+width]) - (2 * img[pos]);
+        if(c != width-1){
+            grad_y[pos] += (img[pos+width+1]-img[pos+1]);
         }
         if(c != 0){
-            grad_y[pos] += (img[pos+columns-1]-img[pos-1]);
+            grad_y[pos] += (img[pos+width-1]-img[pos-1]);
         }
-        pos += columns;
+        pos += width;
 
         // Middle, nonborder pixels
-        for(int r = 1; r < rows-1; r++, pos+=columns){
-            grad_y[pos] = (2*img[pos+columns]) - (2*img[pos-columns]);
-            if(c != columns-1){
-                grad_y[pos] += (img[pos+columns+1]-img[pos-columns+1]);
+        for(int r = 1; r < height-1; r++, pos+=width){
+            grad_y[pos] = (2*img[pos+width]) - (2*img[pos-width]);
+            if(c != width-1){
+                grad_y[pos] += (img[pos+width+1]-img[pos-width+1]);
             }
             if(c != 0){
-                grad_y[pos] += (img[pos+columns-1]-img[pos-columns-1]);
+                grad_y[pos] += (img[pos+width-1]-img[pos-width-1]);
             }
         }
 
-        // Bottommost row, all columns; pad out of bounds with border values
-        grad_y[pos] = (2*img[pos]) - (2*img[pos-columns]);
-        if(c != columns-1){
-            grad_y[pos] += (img[pos+1] - img[pos-columns+1]);
+        // Bottommost row, all width; pad out of bounds with border values
+        grad_y[pos] = (2*img[pos]) - (2*img[pos-width]);
+        if(c != width-1){
+            grad_y[pos] += (img[pos+1] - img[pos-width+1]);
         }
         if(c != 0){
-            grad_y[pos] += (img[pos-1]-img[pos-columns-1]);
+            grad_y[pos] += (img[pos-1]-img[pos-width-1]);
         }
     }
 }
@@ -193,21 +193,21 @@ void calculateXYGradient(short int*& img, int rows, int columns, short int*& gra
  *      img: input image, smoothed by gaussian blurring
  *      grad_x: gradient in the x direction
  *      grad_y: gradient in the y direction
- *      rows: height of input/output image
- *      columns: width of input/output image
+ *      height: height of input/output image
+ *      width: width of input/output image
  *      magnitude: magnitude of combined x and y gradient
  *      angle: direction of combined x and y gradient
  ************************************************************************/
-void sobelOperator(short int*& img, int rows, int columns, short int*& magnitude, short int*& angle){
+void sobelOperator(short int*& img, int height, int width, short int*& magnitude, short int*& angle){
     short int* grad_x;          // Gradient in the x direction
     short int* grad_y;          // Gradient in the y direction
-    magnitude = new short int[rows * columns];
-    angle = new short int[rows * columns];
+    magnitude = new short int[height * width];
+    angle = new short int[height * width];
 
-    calculateXYGradient(img, rows, columns, grad_x, grad_y);
+    calculateXYGradient(img, height, width, grad_x, grad_y);
 
     float temp_angle;
-    for(int i = 0; i < (rows * columns); i++){
+    for(int i = 0; i < (height * width); i++){
         // Calculate magnitude of gradient at every pixel
         magnitude[i] = (int)sqrt((grad_x[i] * grad_x[i]) + (grad_y[i] * grad_y[i]));
 
@@ -241,62 +241,62 @@ void sobelOperator(short int*& img, int rows, int columns, short int*& magnitude
  * PARAMETERS:
  *      magnitude: magnitude of calculated gradient
  *      angle: direction of calculated magnitude
- *      rows: height of input/output image
- *      columns: width of input/output image
+ *      height: height of input/output image
+ *      width: width of input/output image
  *      result: gradient with only maximal pixels
  ************************************************************************/
-void nonmaximalSuppression(short int*& magnitude, short int *& angle, int rows, int columns, short int*& result){
+void nonmaximalSuppression(short int*& magnitude, short int *& angle, int height, int width, short int*& result){
     bool max;
-    result = new short int[rows*columns];
-    for(int i = 0; i < rows * columns; i++){
+    result = new short int[height*width];
+    for(int i = 0; i < height * width; i++){
         max = true;
         if(angle[i] == 0){
             int left = i - 1;
             int right = i + 1;
 
-            if((i%columns) > 0){
+            if((i%width) > 0){
                 if(magnitude[i] <= magnitude[left]){max = false;}
             }
-            if(i%columns < columns-1){
+            if(i%width < width-1){
                 if(magnitude[i] <= magnitude[right]){max = false;}
             }
             if(max){result[i] = magnitude[i];}
             else{result[i] = NOEDGE;}
         }   
         else if(angle[i] == 45){
-            int upRight = i + 1 - columns;
-            int downLeft = i - 1 + columns;
+            int upRight = i + 1 - width;
+            int downLeft = i - 1 + width;
 
-            if((i%columns < columns-1) && (i - columns >= 0)){
+            if((i%width < width-1) && (i - width >= 0)){
                 if(magnitude[i] <= magnitude[upRight]){max = false;}
             }
-            if((i%columns > 0) && (i + columns < (rows*columns))){
+            if((i%width > 0) && (i + width < (height*width))){
                 if(magnitude[i] <= magnitude[downLeft]){max = false;}
             }
             if(max){result[i] = magnitude[i];}
             else{result[i] = NOEDGE;}
         }
         else if(angle[i] == 90){
-            int up = i - columns;
-            int down = i + columns;
+            int up = i - width;
+            int down = i + width;
 
-            if(i - columns >= 0){
+            if(i - width >= 0){
                 if(magnitude[i] <= magnitude[up]){max = false;}
             }
-            if(i + columns < (rows*columns)){
+            if(i + width < (height*width)){
                 if(magnitude[i] <= magnitude[down]){max = false;}
             }
             if(max){result[i] = magnitude[i];}
             else{result[i] = NOEDGE;}
         } 
         else if(angle[i] == 135){
-            int upLeft = i - 1 - columns;
-            int downRight = i + 1 + columns;
+            int upLeft = i - 1 - width;
+            int downRight = i + 1 + width;
 
-            if((i%columns > 0) && (i - columns >= 0)){
+            if((i%width > 0) && (i - width >= 0)){
                 if(magnitude[i] <= magnitude[upLeft]){max = false;}
             }
-            if((i%columns < columns-1) && (i + columns < (rows*columns))){
+            if((i%width < width-1) && (i + width < (height*width))){
                 if(magnitude[i] <= magnitude[downRight]){max = false;}
             }
             if(max){result[i] = magnitude[i];}
@@ -312,28 +312,28 @@ void nonmaximalSuppression(short int*& magnitude, short int *& angle, int rows, 
  *      gradient is greater than them
  * PARAMETERS:
  *      edgeCandidates: gradient with only maximal pixels
- *      rows: height of input/output image
- *      columns: width of input/output image
+ *      height: height of input/output image
+ *      width: width of input/output image
  *      minVal: minimum threshold value for pixels, any pixel with a
  *          gradient magnitude less than this will be set to NOEDGE
  *      maxVal: maximum threshold value for pixels, any pixel with a
  *          gradient magnitude greater than this will be set to EDGE
  ************************************************************************/
-void hysteresis(short int*& edgeCandidates, int rows, int columns, int minVal, int maxVal){
-    bool* visited = new bool [rows * columns];
-    fill_n(visited, rows*columns,false);
+void hysteresis(short int*& edgeCandidates, int height, int width, int minVal, int maxVal){
+    bool* visited = new bool [height * width];
+    fill_n(visited, height*width,false);
     
     // Filter out any pixels below minimum threshold, find all pixels connected to strong edges
-    for(int i = 0; i < rows*columns; i++){
+    for(int i = 0; i < height*width; i++){
         if(edgeCandidates[i] < minVal){
             edgeCandidates[i] = NOEDGE;
         }
         else if(edgeCandidates[i] >= maxVal){
-            findEdgePixels(edgeCandidates, visited, i, minVal, maxVal, rows, columns);
+            findEdgePixels(edgeCandidates, visited, i, minVal, maxVal, height, width);
         }
     }
     // Filter out any pixels between minimum and maximum threshold that are not connected to strong edges
-    for(int i = 0; i < rows*columns; i++){
+    for(int i = 0; i < height*width; i++){
         if(edgeCandidates[i] < maxVal){
             edgeCandidates[i] = NOEDGE;
         }
@@ -349,15 +349,15 @@ void hysteresis(short int*& edgeCandidates, int rows, int columns, int minVal, i
  *      visited: array of all pixels with true representing the pixels
  *          has been visited by the algorithm
  *      start: strong edge to start the search from
- *      columns: width of input/output image
+ *      width: width of input/output image
  *      minVal: minimum threshold value for pixels, any pixel with a
  *          gradient magnitude less than this will be set to NOEDGE
  *      maxVal: maximum threshold value for pixels, any pixel with a
  *          gradient magnitude greater than this will be set to EDGE
- *      rows: height of input/output image
- *      columns: width of input/output image
+ *      height: height of input/output image
+ *      width: width of input/output image
  ************************************************************************/
-void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int minVal, int maxVal, int rows, int columns){
+void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int minVal, int maxVal, int height, int width){
     if(visited[start] == true){return;}
     queue<int> pixels;
     int current; 
@@ -366,19 +366,19 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
     while(!pixels.empty()){
         current = pixels.front();
         edgeCandidates[current] = EDGE;
-        if(current%columns > 0){
+        if(current%width > 0){
             // Check pixel to the bottom left
-            if(current + columns < (rows*columns)){
-                if(edgeCandidates[current+columns - 1] >= minVal && !visited[current+columns-1]){
-                    pixels.push(current+columns-1);
-                    visited[current+columns-1] = true;
+            if(current + width < (height*width)){
+                if(edgeCandidates[current+width - 1] >= minVal && !visited[current+width-1]){
+                    pixels.push(current+width-1);
+                    visited[current+width-1] = true;
                 }
             }
             // Check pixel to the top left
-            if(current - columns > 0){
-                if(edgeCandidates[current-columns-1] >= minVal && !visited[current-columns-1]){
-                    pixels.push(current-columns-1);
-                    visited[current-columns-1] = true;
+            if(current - width > 0){
+                if(edgeCandidates[current-width-1] >= minVal && !visited[current-width-1]){
+                    pixels.push(current-width-1);
+                    visited[current-width-1] = true;
                 }
             }
             // Check pixel to the left
@@ -387,19 +387,19 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
                 visited[current-1] = true;
             }
         }
-        if(current%columns < columns-1){
+        if(current%width < width-1){
             // Check pixel to the bottom right
-            if(current + columns < (rows*columns)){
-                if(edgeCandidates[current+columns+1] >= minVal && !visited[current+columns+1]){
-                    pixels.push(current+columns+1);
-                    visited[current+columns+1] = true;
+            if(current + width < (height*width)){
+                if(edgeCandidates[current+width+1] >= minVal && !visited[current+width+1]){
+                    pixels.push(current+width+1);
+                    visited[current+width+1] = true;
                 }
             }
             // Check pixel to the top right
-            if(current - columns > 0){
-                if(edgeCandidates[current-columns+1] >= minVal && !visited[current-columns+1]){
-                    pixels.push(current-columns+1);
-                    visited[current-columns+1] = true;
+            if(current - width > 0){
+                if(edgeCandidates[current-width+1] >= minVal && !visited[current-width+1]){
+                    pixels.push(current-width+1);
+                    visited[current-width+1] = true;
                 }
             }
             // Check pixel to the right
@@ -409,17 +409,17 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
             }
         }
         // Check pixel below
-        if(current + columns < (rows*columns)){
-            if(edgeCandidates[current+columns] >= minVal && !visited[current+columns]){
-                pixels.push(current+columns);
-                visited[current+columns] = true;
+        if(current + width < (height*width)){
+            if(edgeCandidates[current+width] >= minVal && !visited[current+width]){
+                pixels.push(current+width);
+                visited[current+width] = true;
             }
         }
         // Check pixel above
-        if(current - columns >= 0){
-            if(edgeCandidates[current-columns] >= minVal && !visited[current-columns]){
-                pixels.push(current-columns);
-                visited[current-columns] = true;
+        if(current - width >= 0){
+            if(edgeCandidates[current-width] >= minVal && !visited[current-width]){
+                pixels.push(current-width);
+                visited[current-width] = true;
             }
         }
         pixels.pop();
