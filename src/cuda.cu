@@ -332,7 +332,7 @@ void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int hei
     cudaFree(angle);
 }
 
-void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width){
+void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps){
     short int* smoothed_img;    // Image blurred by a Gaussian filter
     short int* grad_x;
     short int* grad_y;
@@ -342,7 +342,7 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
 
     cuda_gaussian(img,sigma,height,width,smoothed_img);
 
-    if(STEPS){
+    if(steps){
         Mat gaussianMat(height,width, CV_16S, smoothed_img);
         Mat gaussian_display;
 
@@ -359,7 +359,7 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     
     cuda_sobel_operator(grad_x, grad_y, height, width, magnitude, angle);
 
-    if(STEPS){
+    if(steps){
         Mat sobel_mat(height,width, CV_16S, magnitude);
         Mat sobel_display;
 
@@ -371,7 +371,7 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     }
     cuda_nonmaixmal_suppression(magnitude, angle, height, width, nonmaximal);
 
-    if(STEPS){
+    if(steps){
         Mat result_mat(height,width, CV_16S, nonmaximal);
         Mat result_display;
 

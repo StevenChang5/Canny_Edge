@@ -423,7 +423,7 @@ void findEdgePixels(short int*& edgeCandidates, bool*& visited, int start, int m
     }
 }
 
-void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width){
+void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps){
     short int* smoothed_img;    // Image blurred by a Gaussian filter
     short int* magnitude;       // Magnitude of edges, calculated as sqrt(grad_x^2 + grad_y^2)
     short int* angle;           // Angle/direction of edges, calculated as arctan2(grad_y, grad_x)
@@ -434,7 +434,7 @@ void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, 
     // Apply gaussian blurring
     gaussian(img,sigma,height,width,smoothed_img);
 
-    if(STEPS){
+    if(steps){
         Mat smoothedMat(height,width, CV_16S, smoothed_img);
         Mat smoothed_display;
 
@@ -448,7 +448,7 @@ void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, 
     // Use sobel operator to find magintude and direction of gradient
     sobelOperator(smoothed_img, height, width, magnitude, angle);
 
-    if(STEPS){
+    if(steps){
         Mat gradientMat(height,width, CV_16S, magnitude);
         Mat gradient_display;
         normalize(gradientMat, gradient_display, 0, 255, NORM_MINMAX);
@@ -461,7 +461,7 @@ void canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, 
     // Apply nonmaximal suppression to sharpen edges
     nonmaximalSuppression(magnitude, angle, height, width, nonmaximal);
 
-    if(STEPS){
+    if(steps){
         Mat suppressMat(height,width, CV_16S, nonmaximal);
         Mat suppress_display;
         normalize(suppressMat, suppress_display, 0, 255, NORM_MINMAX);

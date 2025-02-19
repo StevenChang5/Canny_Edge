@@ -1,6 +1,7 @@
 #include <opencv2/opencv.hpp>
 #include <iostream>
 #include <chrono>
+#include <vector>
 
 #include <src/utils.h>
 #include <src/cuda.h>
@@ -12,7 +13,28 @@ int main(int argc, char* argv[]) {
     /***********************************************************
      * Retrieve command line arguments
     ***********************************************************/
-    if(argc < 4){
+    float sigma;
+    int minVal;
+    int maxVal;
+    bool use_cuda = false;
+    bool show_steps = false;
+    vector<string> values;
+
+    for(int i = 1; i < argc; i++){
+        string arg = argv[i];
+
+        if(arg == "-c"){
+            use_cuda = true;
+        }
+        else if(arg == "-s"){
+            show_steps = true;
+        }
+        else{
+            values.push_back(arg);
+        }
+    }
+
+    if(values.size() != 3){
         fprintf(stderr, "USAGE: %s sigma minVal maxVal\n", argv[0]);
         fprintf(stderr, "   sigma: Standard deviation used for the gaussian blurring kernel\n");
         fprintf(stderr, "   minVal: The minimum threshold value used for hysteresis\n");
@@ -22,15 +44,25 @@ int main(int argc, char* argv[]) {
         exit(0);
     }
 
-    if(atof(argv[2]) >= atof(argv[3])){
+    sigma = stof(values[0]);
+    minVal = stoi(values[1]);
+    maxVal = stoi(values[2]);
+    
+
+    if(maxVal <= minVal){
         fprintf(stderr, "ERROR: minVal must be less than maxVal\n");
         exit(0);
     }
 
-    float sigma = atof(argv[1]);
-    int minVal = atof(argv[2]);
-    int maxVal = atof(argv[3]);
-    bool use_cuda = true;
+    if(minVal < 0 or minVal > 255){
+        fprintf(stderr, "ERROR: minVal must be in the range of [0,255]");
+        exit(0);
+    }
+
+    if(maxVal < 0 or maxVal > 255){
+        fprintf(stderr, "ERROR: maxVal must be in the range of [0,255]");
+        exit(0);
+    }
 
     VideoCapture cap;
 
@@ -84,10 +116,10 @@ int main(int argc, char* argv[]) {
         waitKey(0);
 
         if(use_cuda){
-            cuda_canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols);
+            cuda_canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols, show_steps);
         }
         else{
-            canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols);
+            canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols, show_steps);
         }
         
     }

@@ -13,6 +13,6 @@ void cuda_sobel_operator(short int* grad_x, short int* grad_y, int height, int w
 
 void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int height, int width, short int*& result);
 
-void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width);
+void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps);
 
 #endif
