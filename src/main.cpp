@@ -4,7 +4,10 @@
 #include <vector>
 
 #include <src/utils.h>
+
+#ifdef ENABLE_CUDA
 #include <src/cuda.h>
+#endif
 
 using namespace std;
 using namespace cv;
@@ -24,7 +27,12 @@ int main(int argc, char* argv[]) {
         string arg = argv[i];
 
         if(arg == "-c"){
-            use_cuda = true;
+            #ifdef ENABLE_CUDA
+                use_cuda = true;
+            #else
+                fprintf(stderr, "ERROR: cuda not found on device\n");
+                exit(0);
+            #endif
         }
         else if(arg == "-s"){
             show_steps = true;
@@ -116,12 +124,16 @@ int main(int argc, char* argv[]) {
         waitKey(0);
 
         if(use_cuda){
-            cuda_canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols, show_steps);
+            #ifdef ENABLE_CUDA
+                cuda_canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols, show_steps);
+            #else
+                fprintf(stderr, "ERROR: cuda not found on device\n");
+                exit(0);
+            #endif
         }
         else{
             canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols, show_steps);
         }
-        
     }
 
     return 0;

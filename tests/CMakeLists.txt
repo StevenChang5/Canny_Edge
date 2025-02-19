@@ -10,4 +10,6 @@ include_directories(${OpenCV_INCLUDE_DIRECTORIES})
 
 add_subdirectory(utils)
 
-add_subdirectory(cuda)
+if(ENABLE_CUDA)
+  add_subdirectory(cuda)
+endif()

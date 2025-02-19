@@ -1,7 +1,15 @@
 cmake_minimum_required(VERSION 3.28.0)
 project(CannyEdge)
 
-enable_language(CUDA)
+option(ENABLE_CUDA ON)
+if(ENABLE_CUDA)
+    find_package(CUDA QUIET)
+    if(CUDA_FOUND)
+        enable_language(CUDA)
+    else()
+        set(ENABLE_CUDA OFF)
+    endif()
+endif()
 
 # Set C++ Standard
 set(CMAKE_CXX_STANDARD 14)
