@@ -9,6 +9,9 @@
 #include <src/cuda.h>
 #endif
 
+#define WIDTH 640
+#define HEIGHT 480
+
 using namespace std;
 using namespace cv;
 
@@ -78,14 +81,11 @@ int main(int argc, char* argv[]) {
         cout << "ERROR: Failed to open camera" << endl;
         return -1;
     }
-    
+    cap.set(CAP_PROP_FRAME_WIDTH, WIDTH);
+    cap.set(CAP_PROP_FRAME_HEIGHT, HEIGHT);
+
     Mat frame, gray_frame;
     vector<Mat> frames; 
-    unsigned char *img;         // Raw image
-    short int* smoothed_img;    // Image blurred by a Gaussian filter
-    short int* magnitude;       // Magnitude of edges, calculated as sqrt(grad_x^2 + grad_y^2)
-    short int* angle;           // Angle/direction of edges, calculated as arctan2(grad_y, grad_x)
-    short int* nonmaximal;      // Edges w/ nonmaximal suppression applied to neighbors in angle direction
 
     /***********************************************************
      * Display camera feed, wait for spacebar to be pressed
@@ -121,7 +121,7 @@ int main(int argc, char* argv[]) {
 
         // Display image before any processing
         imshow("Camera Feed", frames[i]);
-        waitKey(0);
+        waitKey(0);// 
 
         if(use_cuda){
             #ifdef ENABLE_CUDA
@@ -135,6 +135,8 @@ int main(int argc, char* argv[]) {
             canny(frames[i].data, sigma, minVal, maxVal, frames[i].rows, frames[i].cols, show_steps);
         }
     }
+
+    cap.release();
 
     return 0;
 }

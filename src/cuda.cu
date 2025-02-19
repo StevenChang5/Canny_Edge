@@ -77,7 +77,7 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
     }
 }
 
-void cuda_gaussian(unsigned char* img, float sigma, int rows, int columns, short int*& result){
+void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result){
     unsigned char* shared_img;
     float* temp_img; 
     int window = 1 + 2 * ceil(3 * sigma);
@@ -282,10 +282,10 @@ __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int h
                 int upRight = idx + 1 - width;
                 int downLeft = idx - 1 + width;
     
-                if((idx%width < width-1) && (idx >= height)){
+                if((idx%width < width-1) && (idx - width >= 0)){
                     if(magnitude[idx] <= magnitude[upRight]){max = false;}
                 }
-                if((idx%width > 0) && (idx < (height*width)-height)){
+                if((idx%width > 0) && (idx + width < (height*width))){
                     if(magnitude[idx] <= magnitude[downLeft]){max = false;}
                 }
                 if(max){result[idx] = magnitude[idx];}
@@ -295,10 +295,10 @@ __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int h
                 int up = idx - width;
                 int down = idx + width;
     
-                if(idx >= height){
+                if(idx - width >= 0){
                     if(magnitude[idx] <= magnitude[up]){max = false;}
                 }
-                if(idx < (height*width)-height){
+                if(idx + width < (height*width)){
                     if(magnitude[idx] <= magnitude[down]){max = false;}
                 }
                 if(max){result[idx] = magnitude[idx];}
@@ -308,10 +308,10 @@ __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int h
                 int upLeft = idx - 1 - width;
                 int downRight = idx + 1 + width;
     
-                if((idx%width > 0) && (idx >= height)){
+                if((idx%width > 0) && (idx - width >= 0)){
                     if(magnitude[idx] <= magnitude[upLeft]){max = false;}
                 }
-                if((idx%width < width-1) && (idx < (height*width)-height)){
+                if((idx%width < width-1) && (idx + width < (height*width))){
                     if(magnitude[idx] <= magnitude[downRight]){max = false;}
                 }
                 if(max){result[idx] = magnitude[idx];}
