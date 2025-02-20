@@ -4,6 +4,7 @@ project(CannyEdge)
 option(ENABLE_CUDA OFF)
 if(ENABLE_CUDA)
     enable_language(CUDA)
+    add_definitions(-DENABLE_CUDA)
 endif()
 
 # Set C++ Standard

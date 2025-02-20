@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
             #ifdef ENABLE_CUDA
                 use_cuda = true;
             #else
-                fprintf(stderr, "ERROR: cuda not found on device\n");
+                fprintf(stderr, "ERROR: cuda not enabled\n");
                 exit(0);
             #endif
         }
