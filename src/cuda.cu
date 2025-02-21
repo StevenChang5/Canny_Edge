@@ -78,28 +78,26 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
 }
 
 void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result){
-    unsigned char* shared_img;
-    float* temp_img; 
+    unsigned char* img_device;
+    float* temp_device; 
     int window = 1 + 2 * ceil(3 * sigma);
     float* kernel;
     
-    cudaMallocManaged(&shared_img, rows*columns*sizeof(unsigned char));
-    cudaMallocManaged(&temp_img, rows*columns*sizeof(float));
+    cudaMalloc(&img_device, rows*columns*sizeof(unsigned char));
+    cudaMalloc(&temp_device, rows*columns*sizeof(float));
     cudaMallocManaged(&result, rows*columns*sizeof(short int));
     cudaMallocManaged(&kernel, window * sizeof(float));
 
     createGaussianKernel(kernel, sigma, window);
 
-    for(int i = 0; i < rows*columns; i++){
-        shared_img[i] = img[i];
-    }
+    cudaMemcpy(img_device, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    gaussian_util<<<3,512>>>(shared_img, sigma, window, rows, columns, kernel, temp_img, result);
+    gaussian_util<<<3,512>>>(img_device, sigma, window, rows, columns, kernel, temp_device, result);
 
     cudaDeviceSynchronize();
 
-    cudaFree(shared_img);
-    cudaFree(temp_img);
+    cudaFree(img_device);
+    cudaFree(temp_device);
     cudaFree(kernel);
 }
 
