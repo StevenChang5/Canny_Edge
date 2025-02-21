@@ -77,28 +77,33 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
     }
 }
 
-void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result){
+void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result_host){
     unsigned char* img_device;
     float* temp_device; 
     int window = 1 + 2 * ceil(3 * sigma);
     float* kernel;
+    short int* result_device;
+    result_host = new short int[rows*columns];
     
     cudaMalloc(&img_device, rows*columns*sizeof(unsigned char));
     cudaMalloc(&temp_device, rows*columns*sizeof(float));
-    cudaMallocManaged(&result, rows*columns*sizeof(short int));
+    cudaMalloc(&result_device, rows*columns*sizeof(short int));
     cudaMallocManaged(&kernel, window * sizeof(float));
 
     createGaussianKernel(kernel, sigma, window);
 
     cudaMemcpy(img_device, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    gaussian_util<<<3,512>>>(img_device, sigma, window, rows, columns, kernel, temp_device, result);
+    gaussian_util<<<3,512>>>(img_device, sigma, window, rows, columns, kernel, temp_device, result_device);
 
     cudaDeviceSynchronize();
+
+    cudaMemcpy(result_host, result_device, rows*columns*sizeof(short int), cudaMemcpyDeviceToHost);
 
     cudaFree(img_device);
     cudaFree(temp_device);
     cudaFree(kernel);
+    cudaFree(result_device);
 }
 
 __global__ void xy_utility(short int* img, int height, int width, short int* grad_x, short int* grad_y){
@@ -192,15 +197,31 @@ __global__ void xy_utility(short int* img, int height, int width, short int* gra
     }
 }
 
-void cuda_calculate_xy_gradient(short int* img, int height, int width, short int*& grad_x, short int*& grad_y){
-    cudaMallocManaged(&grad_x, height*width*sizeof(short int));
-    cudaMallocManaged(&grad_y, height*width*sizeof(short int));
+void cuda_calculate_xy_gradient(short int*& img_host, int height, int width, short int*& grad_x_host, short int*& grad_y_host){
+    short int* img_device;
+    short int* grad_x_device;
+    short int* grad_y_device;
 
-    xy_utility<<<3,512>>>(img, height, width, grad_x, grad_y);
+    grad_x_host = new short int[height * width];
+    grad_y_host = new short int[height * width];
+
+    cudaMalloc(&img_device, height*width*sizeof(short int));
+    cudaMemcpy(img_device, img_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&grad_x_device, height*width*sizeof(short int));
+    cudaMalloc(&grad_y_device, height*width*sizeof(short int));
+
+    xy_utility<<<3,512>>>(img_device, height, width, grad_x_device, grad_y_device);
     
     cudaDeviceSynchronize();
 
-    cudaFree(img);
+    cudaMemcpy(grad_x_host, grad_x_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(grad_y_host, grad_y_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+
+    cudaFree(grad_x_device);
+    cudaFree(grad_y_device);
+    cudaFree(img_device);
+    delete[] img_host;
 }
 
 __global__ void sobel_utility(short int* grad_x, short int* grad_y, int height, int width, short int* magnitude, short int* angle){
@@ -238,16 +259,35 @@ __global__ void sobel_utility(short int* grad_x, short int* grad_y, int height, 
     }
 }
 
-void cuda_sobel_operator(short int* grad_x, short int* grad_y, int height, int width, short int*& magnitude, short int*& angle){
-    cudaMallocManaged(&magnitude, height*width*sizeof(short int));
-    cudaMallocManaged(&angle, height*width*sizeof(short int));
+void cuda_sobel_operator(short int*& grad_x_host, short int*& grad_y_host, int height, int width, short int*& magnitude_host, short int*& angle_host){
+    short int* grad_x_device;
+    short int* grad_y_device;
+    short int* magnitude_device;
+    short int* angle_device;
+    magnitude_host = new short int[height*width];
+    angle_host = new short int[height*width];
+  
+    cudaMalloc(&grad_x_device, height*width*sizeof(short int));
+    cudaMalloc(&grad_y_device, height*width*sizeof(short int));
+    cudaMalloc(&magnitude_device, height*width*sizeof(short int));
+    cudaMalloc(&angle_device, height*width*sizeof(short int));
 
-    sobel_utility<<<3,512>>>(grad_x, grad_y, height, width, magnitude, angle);
+    cudaMemcpy(grad_x_device, grad_x_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+    cudaMemcpy(grad_y_device, grad_y_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+
+    sobel_utility<<<3,512>>>(grad_x_device, grad_y_device, height, width, magnitude_device, angle_device);
 
     cudaDeviceSynchronize();
 
-    cudaFree(grad_x);
-    cudaFree(grad_y);
+    cudaMemcpy(magnitude_host, magnitude_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(angle_host, angle_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+
+    cudaFree(grad_x_device);
+    cudaFree(grad_y_device);
+    cudaFree(magnitude_device);
+    cudaFree(angle_device);
+    delete[] grad_x_host;
+    delete[] grad_y_host;
 }
 
 __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int height, int width, short int* result){
@@ -319,15 +359,29 @@ __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int h
     }
 }
 
-void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int height, int width, short int*& result){
-    cudaMallocManaged(&result, height*width*sizeof(short int));
+void cuda_nonmaixmal_suppression(short int*& magnitude_host, short int*& angle_host, int height, int width, short int*& result_host){
+    short int* magnitude_device;
+    short int* angle_device;
+    short int* result_device;
+    result_host = new short int[height*width];
 
-    nonmaximal_utility<<<3,512>>>(magnitude,angle,height,width,result);
+    cudaMalloc(&magnitude_device, height*width*sizeof(short int));
+    cudaMalloc(&angle_device, height*width*sizeof(short int));
+    cudaMalloc(&result_device, height*width*sizeof(short int));
+
+    cudaMemcpy(magnitude_device, magnitude_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+    cudaMemcpy(angle_device, angle_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+
+    nonmaximal_utility<<<3,512>>>(magnitude_device,angle_device,height,width,result_device);
 
     cudaDeviceSynchronize();
 
-    cudaFree(magnitude);
-    cudaFree(angle);
+    cudaMemcpy(result_host, result_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+
+    cudaFree(magnitude_device);
+    cudaFree(angle_device);
+    delete[] magnitude_host;
+    delete[] angle_host;
 }
 
 void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps){
