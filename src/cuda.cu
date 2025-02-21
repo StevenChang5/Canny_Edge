@@ -12,14 +12,6 @@
 using namespace cv;
 using namespace std;
 
-void allocate_memory(short int*& pointer, int height, int width){
-    cudaMallocManaged(&pointer, height*width*sizeof(short int));
-}
-
-void clear_memory(short int*& pointer){
-    cudaFree(pointer);
-}
-
 void createGaussianKernel(float*& kernel , float sigma, int window){
     int center = (window)/2;
     float x;
@@ -381,6 +373,7 @@ void cuda_nonmaixmal_suppression(short int*& magnitude_host, short int*& angle_h
 
     cudaMemcpy(result_host, result_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
 
+    cudaFree(result_device);
     cudaFree(magnitude_device);
     cudaFree(angle_device);
     delete[] magnitude_host;
@@ -447,6 +440,6 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     imshow("Final Image", final_display);
     waitKey(0);
 
-    clear_memory(nonmaximal);
+    delete[] nonmaximal;
 }
     
