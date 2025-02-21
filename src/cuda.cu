@@ -12,6 +12,33 @@
 using namespace cv;
 using namespace std;
 
+template <typename T>
+class Image{
+    int width;
+    int height;
+    int stride;
+    T* elements;
+    public: 
+        Image(int w, int h, int s){
+            width = w;
+            height = h;
+            stride = s;
+        }
+
+        T getElement(int row, int col){
+            return elements[row * stride + col];
+        }
+
+        void setElement(int row, int col, T value){
+            elements[row * stride + col] = value;
+        }
+
+        __device__ Image<T> getSubImage(int row, int col){
+            Image sub(BLOCK_SIZE+2, BLOCK_SIZE+2, stride);
+            sub.elements = &elements[stride * BLOCK_SIZE * row + BLOCK_SIZE * col];
+        }
+};
+
 void createGaussianKernel(float*& kernel , float sigma, int window){
     int center = (window)/2;
     float x;
