@@ -7,37 +7,38 @@
 #include <iostream>
 
 #define NUM_BLOCKS 1
-#define BLOCK_SIZE 512
+#define BLOCK_SIZE 16
 
 using namespace cv;
 using namespace std;
 
 template <typename T>
-class Image{
+struct Image{
     int width;
     int height;
     int stride;
     T* elements;
-    public: 
-        Image(int w, int h, int s){
-            width = w;
-            height = h;
-            stride = s;
-        }
-
-        T getElement(int row, int col){
-            return elements[row * stride + col];
-        }
-
-        void setElement(int row, int col, T value){
-            elements[row * stride + col] = value;
-        }
-
-        __device__ Image<T> getSubImage(int row, int col){
-            Image sub(BLOCK_SIZE+2, BLOCK_SIZE+2, stride);
-            sub.elements = &elements[stride * BLOCK_SIZE * row + BLOCK_SIZE * col];
-        }
 };
+
+template<typename T>
+__device__ T getElement(const Image<T> img, int row, int col){
+    return img.elements[row * img.stride + col];
+}
+
+template<typename T>
+__device__ void setElement(Image<T> img, int row, int col, T value){
+    img.elements[row * img.stride + col] = value;
+}
+
+template<typename T>
+__device__ Image<T> getSubImage(Image<T> img, int row, int col){
+    Image<T> sub_img;
+    sub_img.width = img.width;
+    sub_img.height = img.height;
+    sub_img.stride = img.stride;
+    sub_img.elements = &img.elements[img.stride * BLOCK_SIZE * row + BLOCK_SIZE * col];
+}
+
 
 void createGaussianKernel(float*& kernel , float sigma, int window){
     int center = (window)/2;
@@ -56,47 +57,94 @@ void createGaussianKernel(float*& kernel , float sigma, int window){
     }
 }
 
-__global__ void gaussian_util(unsigned char* img, float sigma, int window, int height, int width, float* kernel, float* temp_img, short int* result){
-    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-  
-    int stride_x = blockDim.x * gridDim.x;
-    int stride_y = blockDim.y * gridDim.y;
-    
-    int center = window/2;
+__global__ void gaussian_util(Image<unsigned char> img_main, unsigned char* img, float sigma, int window, int height, int width, float* kernel, float* temp_img, short int* result){
+    int blockRow = blockIdx.y;
+    int blockCol = blockIdx.x;
 
-    // Blur in the x direction
-    for(int row = idx_y; row < height; row += stride_y){
-        for(int col = idx_x; col < width; col += stride_x){
-            int idx = row * width + col;
-            float sum = 0;
-            float count = 0;
-            for(int k = -center; k < (center + 1); k++){
-                if(((col+k) >= 0) and (col+k) < width){
-                    sum += ((float)(img[idx+k]) * kernel[center+k]);
-                    count += kernel[center+k];
-                }
-            }
-            temp_img[idx] = (sum/count);
-        }
-    }
+    Image<unsigned char> img_sub = getSubImage(img_main, blockRow, blockCol);
+
+    int row = threadIdx.y;
+    int col = threadIdx.x;
+
+    __shared__ unsigned char img_s[BLOCK_SIZE * BLOCK_SIZE];
+    __shared__ float img_temp[BLOCK_SIZE * BLOCK_SIZE];
+    __shared__ unsigned int img_result[BLOCK_SIZE * BLOCK_SIZE];
+
+    int idx = row * BLOCK_SIZE + col;
+    img_s[idx] = getElement(img_sub, row, col);
+
     __syncthreads();
 
-    // Blur in the y direction
-    for(int col = idx_x; col < width; col += stride_x){
-        for(int row = idx_y; row < height; row += stride_y){
-            int idx = row * width + col;
-            float sum = 0;
-            float count = 0;
-            for(int k = -center; k < (center + 1); k++){
-                if(((row + k) >= 0) and ((row + k) < height)){
-                    sum += ((float)(temp_img[idx + (k*width)]) * kernel[center+k]);
-                    count += kernel[center+k];
-                }
-            }
-            result[idx] = (short int)(sum/count);
+    int center = window/2;
+
+    float sum = 0;
+    float count = 0;
+    for(int k = -center; k < (center + 1); k++){
+        if(((col+k) >= 0) and (col+k) < width){
+            sum += ((float)(img_s[idx+k]) * kernel[center + k]);
+            count += kernel[center + k];
+        }
+        img_temp[idx] = sum/count;
+    }
+
+    __syncthreads();
+
+    sum = 0;
+    count = 0;
+
+    for(int k = -center; k < (center + 1); k++){
+        if(((row + k) >= 0) and ((row + k) < height)){
+            sum += ((float)(img_temp[idx + (k*width)]) * kernel[center+k]);
+            count += kernel[center+k];
         }
     }
+    img_result[idx] = (short int)(sum/count);
+
+    __syncthreads();
+
+    int orig_idx = (width * BLOCK_SIZE * blockRow + BLOCK_SIZE * blockCol) + idx;
+    result[orig_idx] = img_result[idx];
+    
+    // int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+    // int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+  
+    // int stride_x = blockDim.x * gridDim.x;
+    // int stride_y = blockDim.y * gridDim.y;
+    
+    // int center = window/2;
+
+    // // Blur in the x direction
+    // for(int row = idx_y; row < height; row += stride_y){
+    //     for(int col = idx_x; col < width; col += stride_x){
+    //         int idx = row * width + col;
+    //         float sum = 0;
+    //         float count = 0;
+    //         for(int k = -center; k < (center + 1); k++){
+    //             if(((col+k) >= 0) and (col+k) < width){
+    //                 sum += ((float)(img[idx+k]) * kernel[center+k]);
+    //                 count += kernel[center+k];
+    //             }
+    //         }
+    //         temp_img[idx] = (sum/count);
+    //     }
+    // }
+    // __syncthreads();
+
+    // // Blur in the y direction
+    // for(int col = idx_x; col < width; col += stride_x){
+    //     for(int row = idx_y; row < height; row += stride_y){
+    //         int idx = row * width + col;
+    //         float sum = 0;
+    //         float count = 0;
+    //         for(int k = -center; k < (center + 1); k++){
+    //             if(((row + k) >= 0) and ((row + k) < height)){
+    //                 sum += ((float)(temp_img[idx + (k*width)]) * kernel[center+k]);
+    //                 count += kernel[center+k];
+    //             }
+    //         }
+    //         result[idx] = (short int)(sum/count);
+    //     }
+    // }
 }
 
 void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result_host){
@@ -106,6 +154,13 @@ void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, shor
     float* kernel;
     short int* result_device;
     result_host = new short int[rows*columns];
+
+    Image<unsigned char> temp_dev;
+    temp_dev.width = temp_dev.stride = columns;
+    temp_dev.height = rows;
+
+    cudaMalloc(&temp_dev.elements, rows*columns*sizeof(unsigned char));
+    cudaMemcpy(temp_dev.elements, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
     
     cudaMalloc(&img_device, rows*columns*sizeof(unsigned char));
     cudaMalloc(&temp_device, rows*columns*sizeof(float));
@@ -116,16 +171,18 @@ void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, shor
 
     cudaMemcpy(img_device, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    gaussian_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(img_device, sigma, window, rows, columns, kernel, temp_device, result_device);
+    gaussian_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(temp_dev, img_device, sigma, window, rows, columns, kernel, temp_device, result_device);
 
     cudaDeviceSynchronize();
 
-    cudaMemcpy(result_host, result_device, rows*columns*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(result_host, temp_dev.elements, rows*columns*sizeof(short int), cudaMemcpyDeviceToHost);
 
     cudaFree(img_device);
     cudaFree(temp_device);
     cudaFree(kernel);
     cudaFree(result_device);
+
+    cudaFree(temp_dev.elements);
 }
 
 __global__ void xy_utility(short int* img, int height, int width, short int* grad_x, short int* grad_y){
