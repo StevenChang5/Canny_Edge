@@ -6,6 +6,9 @@
 #include <chrono>
 #include <iostream>
 
+#define NUM_BLOCKS 1
+#define BLOCK_SIZE 512
+
 using namespace cv;
 using namespace std;
 
@@ -94,7 +97,7 @@ void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, shor
 
     cudaMemcpy(img_device, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    gaussian_util<<<3,512>>>(img_device, sigma, window, rows, columns, kernel, temp_device, result_device);
+    gaussian_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(img_device, sigma, window, rows, columns, kernel, temp_device, result_device);
 
     cudaDeviceSynchronize();
 
@@ -211,7 +214,7 @@ void cuda_calculate_xy_gradient(short int*& img_host, int height, int width, sho
     cudaMalloc(&grad_x_device, height*width*sizeof(short int));
     cudaMalloc(&grad_y_device, height*width*sizeof(short int));
 
-    xy_utility<<<3,512>>>(img_device, height, width, grad_x_device, grad_y_device);
+    xy_utility<<<NUM_BLOCKS,BLOCK_SIZE>>>(img_device, height, width, grad_x_device, grad_y_device);
     
     cudaDeviceSynchronize();
 
@@ -275,7 +278,7 @@ void cuda_sobel_operator(short int*& grad_x_host, short int*& grad_y_host, int h
     cudaMemcpy(grad_x_device, grad_x_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
     cudaMemcpy(grad_y_device, grad_y_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
 
-    sobel_utility<<<3,512>>>(grad_x_device, grad_y_device, height, width, magnitude_device, angle_device);
+    sobel_utility<<<NUM_BLOCKS,BLOCK_SIZE>>>(grad_x_device, grad_y_device, height, width, magnitude_device, angle_device);
 
     cudaDeviceSynchronize();
 
@@ -372,7 +375,7 @@ void cuda_nonmaixmal_suppression(short int*& magnitude_host, short int*& angle_h
     cudaMemcpy(magnitude_device, magnitude_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
     cudaMemcpy(angle_device, angle_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
 
-    nonmaximal_utility<<<3,512>>>(magnitude_device,angle_device,height,width,result_device);
+    nonmaximal_utility<<<NUM_BLOCKS,BLOCK_SIZE>>>(magnitude_device,angle_device,height,width,result_device);
 
     cudaDeviceSynchronize();
 
