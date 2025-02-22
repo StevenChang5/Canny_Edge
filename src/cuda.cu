@@ -6,8 +6,8 @@
 #include <chrono>
 #include <iostream>
 
-#define NUM_BLOCKS 1
-#define BLOCK_SIZE 512
+#define NUM_BLOCKS 10
+#define BLOCK_SIZE 16
 
 using namespace cv;
 using namespace std;
@@ -101,115 +101,115 @@ void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, shor
     cudaFree(result_device);
 }
 
-__global__ void sobel_util(short int* img, int height, int width, short int* grad_x, short int* grad_y, short int* magnitude, short int* angle){
-    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+__global__ void sobel_util(short int* img, int height, int width, short int* magnitude, short int* angle){
+    int size = height * width;
+
+    int blk_x = blockIdx.x;
+    int blk_y = blockIdx.y;
+
+    int thrd_x = threadIdx.x;
+    int thrd_y = threadIdx.y;
+
+    // int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+    // int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
   
-    int stride_x = blockDim.x * gridDim.x;
-    int stride_y = blockDim.y * gridDim.y;
+    int stride_x = gridDim.x;
+    int stride_y = gridDim.y;
+
+
+    __shared__ short int img_shared[BLOCK_SIZE+2][BLOCK_SIZE+2];
+
+    __shared__ short int grad_x[BLOCK_SIZE][BLOCK_SIZE];
+
+    __shared__ short int grad_y[BLOCK_SIZE][BLOCK_SIZE];
     
-    // Gradient in the x direction, filter in the form of:
-    // -1   0   1
-    // -2   0   2
-    // -1   0   1
-    for(int row = idx_y; row < height; row += stride_y){
-        for(int col = idx_x; col < width; col += stride_x){
-            int pos = row * width + col;
-            if(col == 0){
-                // Leftmost column, all rows; pad out of bounds with border values
-                grad_x[pos] = (2 * img[pos+1]) - (2 * img[pos]);
-                // include row above
-                if(row != height-1){
-                    grad_x[pos] += (img[pos+width+1] - img[pos+width]);
-                }
-                // include row below
-                if(row != 0){
-                    grad_x[pos] += (img[pos-width+1] - img[pos-width]);
-                }
-            }
-            else if(col == (width-1)){
-                // Rightmost column, all rows; pad out of bounds with border values
-                grad_x[pos] = (2 * img[pos]) - (2 * img[pos-1]);
-                // include row below
-                if(row != height-1){
-                    grad_x[pos] += (img[pos+width] - img[pos+width-1]);
-                }
-                // include row above
-                if(row != 0){
-                    grad_x[pos] += (img[pos-width] - img[pos-width-1]);
-                }
-            }
-            else{
-                grad_x[pos] = (2 * img[pos+1]) - (2 * img[pos-1]);
-                if(row != height-1){
-                    grad_x[pos] += (img[pos+width+1] - img[pos+width-1]);
-                }
-                if(row != 0){
-                    grad_x[pos] += (img[pos-width+1] - img[pos-width-1]);
-                }
-            }
-        }
-    }
+    for(int row = blk_y; row < height/BLOCK_SIZE; row += stride_y){
+        for(int col = blk_x; col < width/BLOCK_SIZE; col += stride_x){
+            // Position relative to entire image
+            int img_pos = (((row * BLOCK_SIZE * width)+(thrd_y * width)) + ((col * BLOCK_SIZE) + thrd_x));
 
-    // Gradient in the y direction, filter in the form of:
-    //  1   2   1
-    //  0   0   0
-    // -1  -2  -1
-    for(int col = idx_x; col < width; col += stride_x){
-        for(int row = idx_y; row < height; row += stride_y){
-            int pos = row * width + col;
-            if(row == 0){
-                // Topmost row, all columns; pad out of bounds with border values
-                grad_y[pos] = (2 * img[pos+width]) - (2 * img[pos]);
-                if(col != width-1){
-                    grad_y[pos] += (img[pos+width+1]-img[pos+1]);
-                }
-                if(col != 0){
-                    grad_y[pos] += (img[pos+width-1]-img[pos-1]);
-                }
+            img_shared[thrd_y+1][thrd_x+1] = img[img_pos];
+
+            // Fill in outer border
+            // left/right border
+            if(blk_x == 0){
+                img_shared[thrd_y+1][thrd_x] = -1;
+            }else{
+                img_shared[thrd_y+1][thrd_x] = img[img_pos - 1];
             }
-            else if(row == (height - 1)){
-                // Bottommost row, all columns; pad out of bounds with border values
-                grad_y[pos] = (2*img[pos]) - (2*img[pos-width]);
-                if(col != width-1){
-                    grad_y[pos] += (img[pos+1] - img[pos-width+1]);
-                }
-                if(col != 0){
-                    grad_y[pos] += (img[pos-1]-img[pos-width-1]);
-                }
+            if(blk_x == ((width/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+1][thrd_x+2] = -1;
+            }else{
+                img_shared[thrd_y+1][thrd_x+2] = img[img_pos+1];
             }
-            else{
-                // Middle, nonborder pixels
-                grad_y[pos] = (2*img[pos+width]) - (2*img[pos-width]);
-                if(col != width-1){
-                    grad_y[pos] += (img[pos+width+1]-img[pos-width+1]);
-                }
-                if(col != 0){
-                    grad_y[pos] += (img[pos+width-1]-img[pos-width-1]);
-                }
+            
+            // top/bottom border
+            if(blk_y == 0){
+                img_shared[thrd_y][thrd_x+1] = -1;
+            }else{
+                img_shared[thrd_y][thrd_x+1] = img[img_pos - width];
+            }
+            if(blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+1] = -1;
+            }else{
+                img_shared[thrd_y+2][thrd_x+1] = img[img_pos + width];
+            }
+            
+            // corners
+            if(blk_x == 0 and blk_y == 0){
+                img_shared[thrd_y][thrd_x] = -1;
+            }else{
+                img_shared[thrd_y][thrd_x] = img[img_pos - 1 - width];
             }
 
-            // Calculate magnitude of gradient at every pixel
-            int idx = row * width + col;
-            magnitude[idx] = (int)sqrtf((grad_x[idx] * grad_x[idx]) + (grad_y[idx] * grad_y[idx]));
+            if(blk_x == 0 and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x] = -1;
+            }else{
+                img_shared[thrd_y+2][thrd_x] = img[img_pos -1 + width];
+            }
+
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == 0){
+                img_shared[thrd_y][thrd_x+2] = -1;
+            }else{
+                img_shared[thrd_y][thrd_x+2] = img[img_pos +1 - width];
+            }
+
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+2] = -1;
+            }else{
+                img_shared[thrd_y+2][thrd_x+2] = img[img_pos +1 + width];
+            }
+
+            __syncthreads();
+
+            grad_x[thrd_y][thrd_x] = (2 * img_shared[thrd_y+1][thrd_x+2]) - (2 * img_shared[thrd_y+1][thrd_x]);
+            grad_x[thrd_y][thrd_x] += img_shared[thrd_y+2][thrd_x+2] - img_shared[thrd_y+2][thrd_x];
+            grad_x[thrd_y][thrd_x] += img_shared[thrd_y][thrd_x+2] - img_shared[thrd_y][thrd_x];
+
+            grad_y[thrd_y][thrd_x] = (2 * img_shared[thrd_y][thrd_x+1]) - (2 * img_shared[thrd_y+2][thrd_x+1]);
+            grad_y[thrd_y][thrd_x] += img_shared[thrd_y][thrd_x+2] - img_shared[thrd_y+2][thrd_x+2];
+            grad_y[thrd_y][thrd_x] += img_shared[thrd_y][thrd_x] - img_shared[thrd_y+2][thrd_x];
+
+            magnitude[img_pos] = (short int)sqrtf((grad_x[thrd_y][thrd_x] * grad_x[thrd_y][thrd_x]) 
+                                                + (grad_y[thrd_y][thrd_x] * grad_y[thrd_y][thrd_x]));
 
             // Calculate angle of gradient at every pixel
-            float temp_angle = atan2((double)grad_y[idx],(double)grad_x[idx]);
+            float temp_angle = atan2((double)grad_y[thrd_y][thrd_x],(double)grad_x[thrd_y][thrd_x]);
             temp_angle *= (180/PI);
             if(temp_angle < 0){
                 temp_angle = 360 + temp_angle;
             }
             if((temp_angle >= 22.5 && temp_angle < 67.5) || (temp_angle >= 202.5 && temp_angle < 247.5)){
-                angle[idx] = 45;
+                angle[img_pos] = 45;
             }
             else if((temp_angle >= 112.5 && temp_angle < 157.5) || (temp_angle >= 292.5 && temp_angle < 337.5)){
-                angle[idx] = 135;
+                angle[img_pos] = 135;
             }
             else if((temp_angle >= 67.5 && temp_angle < 112.5) || (temp_angle >= 247.5 && temp_angle < 292.5)){
-                angle[idx] = 90;
+                angle[img_pos] = 90;
             }
             else{
-                angle[idx] = 0;
+                angle[img_pos] = 0;
             }
         }
     }
@@ -233,7 +233,9 @@ void cuda_sobel(short int*& img_host, int height, int width, short int*& magnitu
     cudaMalloc(&magnitude_device, height*width*sizeof(short int));
     cudaMalloc(&angle_device, height*width*sizeof(short int));
 
-    sobel_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(img_device, height, width, grad_x_device, grad_y_device, magnitude_device, angle_device);
+    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 dimGrid(width/dimBlock.x, height/dimBlock.y);
+    sobel_util<<<dimGrid,dimBlock>>>(img_device, height, width, magnitude_device, angle_device);
     
     cudaDeviceSynchronize();
 
