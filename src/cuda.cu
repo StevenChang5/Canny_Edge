@@ -7,7 +7,7 @@
 #include <iostream>
 
 #define NUM_BLOCKS 1
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 32
 
 using namespace cv;
 using namespace std;
@@ -37,6 +37,7 @@ __device__ Image<T> getSubImage(Image<T> img, int row, int col){
     sub_img.height = img.height;
     sub_img.stride = img.stride;
     sub_img.elements = &img.elements[img.stride * BLOCK_SIZE * row + BLOCK_SIZE * col];
+    return sub_img;
 }
 
 
@@ -57,132 +58,151 @@ void createGaussianKernel(float*& kernel , float sigma, int window){
     }
 }
 
-__global__ void gaussian_util(Image<unsigned char> img_main, unsigned char* img, float sigma, int window, int height, int width, float* kernel, float* temp_img, short int* result){
-    int blockRow = blockIdx.y;
-    int blockCol = blockIdx.x;
+__global__ void gaussian_util(Image<unsigned char> img_main, float sigma, int window, float* kernel, int height, int width, short int* result){
+    /*
+        NOTE: Given shared memory, it is not possible to allocate enough space for all sub-images. So, to use tiling
+        We need to use a combination of grid-stride technique and tiling. 
+    */
 
-    Image<unsigned char> img_sub = getSubImage(img_main, blockRow, blockCol);
+    int size = height * width;
 
-    int row = threadIdx.y;
-    int col = threadIdx.x;
+    int idx_x = blockIdx.x;
+    int idx_y = blockIdx.y;
 
-    __shared__ unsigned char img_s[BLOCK_SIZE * BLOCK_SIZE];
-    __shared__ float img_temp[BLOCK_SIZE * BLOCK_SIZE];
-    __shared__ unsigned int img_result[BLOCK_SIZE * BLOCK_SIZE];
+    int stride_x = blockDim.x * gridDim.x;
+    int stride_y = blockDim.y * gridDim.y;
 
-    int idx = row * BLOCK_SIZE + col;
-    img_s[idx] = getElement(img_sub, row, col);
+    int thread_row = threadIdx.y;
+    int thread_col = threadIdx.x;
+    
+    // Vertical Index (y) = width * (BLOCK_SIZE * blockRow); Horizontal Index (x)) = BLOCK_SIZE * blockCol
+    int start_idx = width * (BLOCK_SIZE * blockIdx.y) + (BLOCK_SIZE * blockIdx.x);
+    int block_width = BLOCK_SIZE/2;
+
+    __shared__ unsigned char img_s[BLOCK_SIZE][BLOCK_SIZE];
+
+    for(int block_row = blockIdx.y; block_row < height/BLOCK_SIZE; block_row += stride_y){
+        for(int block_col = blockIdx.x; block_col < width/BLOCK_SIZE; block_col += stride_x){
+            Image<unsigned char> img_sub = getSubImage(img_main, block_row, block_col);
+            
+            // idx needs to be relative to entire image, not subimage
+            int idx_main = ((block_row * BLOCK_SIZE * width) + (thread_row * width) ) + ((block_col * BLOCK_SIZE) + thread_col);
+            if(idx_main < size){
+                img_s[thread_row][thread_col] = img_main.elements[idx_main];
+            }
+        }
+    }
 
     __syncthreads();
 
+    __shared__ float img_temp[BLOCK_SIZE][BLOCK_SIZE];
+
     int center = window/2;
+
+    for(int block_row = blockIdx.y; block_row < height/BLOCK_SIZE; block_row += stride_y){
+        for(int block_col = blockIdx.x; block_col < width/BLOCK_SIZE; block_col += stride_x){
+            float sum = 0;
+            float count = 0;
+
+            for(int k = -center; k < (center+1); k++){
+                sum += ((float)(img_main.elements[idx+k]) * kernel[center+k]);
+                count += kernel[center+k];
+            }
+            
+            // idx needs to be relative to entire image, not subimage
+            int idx_main = ((block_row * BLOCK_SIZE * width) + (thread_row * width) ) + ((block_col * BLOCK_SIZE) + thread_col);
+            if(idx_main < size){
+                img_s[thread_row][thread_col] = img_main.elements[idx_main];
+            }
+        }
+    }
 
     float sum = 0;
     float count = 0;
     for(int k = -center; k < (center + 1); k++){
-        if(((col+k) >= 0) and (col+k) < width){
-            sum += ((float)(img_s[idx+k]) * kernel[center + k]);
-            count += kernel[center + k];
-        }
-        img_temp[idx] = sum/count;
-    }
+        if(((col+k) >= 0) and ((col+k) < BLOCK_SIZE)){
 
-    __syncthreads();
-
-    sum = 0;
-    count = 0;
-
-    for(int k = -center; k < (center + 1); k++){
-        if(((row + k) >= 0) and ((row + k) < height)){
-            sum += ((float)(img_temp[idx + (k*width)]) * kernel[center+k]);
-            count += kernel[center+k];
         }
     }
-    img_result[idx] = (short int)(sum/count);
 
-    __syncthreads();
-
-    int orig_idx = (width * BLOCK_SIZE * blockRow + BLOCK_SIZE * blockCol) + idx;
-    result[orig_idx] = img_result[idx];
     
-    // int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    // int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
+    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
   
-    // int stride_x = blockDim.x * gridDim.x;
-    // int stride_y = blockDim.y * gridDim.y;
+    for(int )
     
-    // int center = window/2;
+    int center = window/2;
 
-    // // Blur in the x direction
-    // for(int row = idx_y; row < height; row += stride_y){
-    //     for(int col = idx_x; col < width; col += stride_x){
-    //         int idx = row * width + col;
-    //         float sum = 0;
-    //         float count = 0;
-    //         for(int k = -center; k < (center + 1); k++){
-    //             if(((col+k) >= 0) and (col+k) < width){
-    //                 sum += ((float)(img[idx+k]) * kernel[center+k]);
-    //                 count += kernel[center+k];
-    //             }
-    //         }
-    //         temp_img[idx] = (sum/count);
-    //     }
-    // }
-    // __syncthreads();
+    // Blur in the x direction
+    for(int row = idx_y; row < height; row += stride_y){
+        for(int col = idx_x; col < width; col += stride_x){
+            int idx = row * width + col;
+            float sum = 0;
+            float count = 0;
+            for(int k = -center; k < (center + 1); k++){
+                if(((col+k) >= 0) and (col+k) < width){
+                    sum += ((float)(img_main.elements[idx+k]) * kernel[center+k]);
+                    count += kernel[center+k];
+                }
+            }
+            temp_img[idx] = (sum/count);
+        }
+    }
+    __syncthreads();
 
-    // // Blur in the y direction
-    // for(int col = idx_x; col < width; col += stride_x){
-    //     for(int row = idx_y; row < height; row += stride_y){
-    //         int idx = row * width + col;
-    //         float sum = 0;
-    //         float count = 0;
-    //         for(int k = -center; k < (center + 1); k++){
-    //             if(((row + k) >= 0) and ((row + k) < height)){
-    //                 sum += ((float)(temp_img[idx + (k*width)]) * kernel[center+k]);
-    //                 count += kernel[center+k];
-    //             }
-    //         }
-    //         result[idx] = (short int)(sum/count);
-    //     }
-    // }
+    // Blur in the y direction
+    for(int col = idx_x; col < width; col += stride_x){
+        for(int row = idx_y; row < height; row += stride_y){
+            int idx = row * width + col;
+            float sum = 0;
+            float count = 0;
+            for(int k = -center; k < (center + 1); k++){
+                if(((row + k) >= 0) and ((row + k) < height)){
+                    sum += ((float)(temp_img[idx + (k*width)]) * kernel[center+k]);
+                    count += kernel[center+k];
+                }
+            }
+            result[idx] = (short int)(sum/count);
+        }
+    }
 }
 
-void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result_host){
-    unsigned char* img_device;
-    float* temp_device; 
+void cuda_gaussian(unsigned char*& img, float sigma, int height, int width, short int*& result_host){
+    int size = height * width;
     int window = 1 + 2 * ceil(3 * sigma);
-    float* kernel;
+
+    Image<unsigned char> img_device;
+    img_device.width = img_device.stride = width;
+    img_device.height = height;
+
     short int* result_device;
-    result_host = new short int[rows*columns];
+    result_host = new short int[height*size];
 
-    Image<unsigned char> temp_dev;
-    temp_dev.width = temp_dev.stride = columns;
-    temp_dev.height = rows;
+    // Allocate space for img_device.elements and result_device on GPU
+    cudaMalloc(&img_device.elements, size*sizeof(unsigned char));
+    cudaMalloc(&result_device, size*sizeof(short int));
 
-    cudaMalloc(&temp_dev.elements, rows*columns*sizeof(unsigned char));
-    cudaMemcpy(temp_dev.elements, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
-    
-    cudaMalloc(&img_device, rows*columns*sizeof(unsigned char));
-    cudaMalloc(&temp_device, rows*columns*sizeof(float));
-    cudaMalloc(&result_device, rows*columns*sizeof(short int));
+    // Copy img, kernel to GPU
+    cudaMemcpy(img_device.elements, img, size*sizeof(unsigned char), cudaMemcpyHostToDevice);
+    float* kernel;
     cudaMallocManaged(&kernel, window * sizeof(float));
-
     createGaussianKernel(kernel, sigma, window);
 
-    cudaMemcpy(img_device, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
-
-    gaussian_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(temp_dev, img_device, sigma, window, rows, columns, kernel, temp_device, result_device);
+    // Perform gaussian blurring
+    // dim3 makes the block coordinates of format (x,y), grid of size (BLOCK_SIZE, BLOCK_SIZE)
+    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 dimGrid(width/dimBlock.x, height/dimBlock.y);
+    gaussian_util<<<dimGrid,dimBlock>>>(img_device, sigma, window, kernel, height, width, result_device);
 
     cudaDeviceSynchronize();
 
-    cudaMemcpy(result_host, temp_dev.elements, rows*columns*sizeof(short int), cudaMemcpyDeviceToHost);
+    // Copy blurred image from GPU to CPU
+    cudaMemcpy(result_host, result_device, size*sizeof(short int), cudaMemcpyDeviceToHost);
 
-    cudaFree(img_device);
-    cudaFree(temp_device);
+    // Clear elements from GPU memory
     cudaFree(kernel);
     cudaFree(result_device);
-
-    cudaFree(temp_dev.elements);
+    cudaFree(img_device.elements);
 }
 
 __global__ void xy_utility(short int* img, int height, int width, short int* grad_x, short int* grad_y){
