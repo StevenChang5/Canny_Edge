@@ -6,8 +6,8 @@
 #include <chrono>
 #include <iostream>
 
-#define NUM_BLOCKS 10
-#define BLOCK_SIZE 16
+#define NUM_BLOCKS 20
+#define BLOCK_SIZE 32
 
 using namespace cv;
 using namespace std;
@@ -102,8 +102,6 @@ void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, shor
 }
 
 __global__ void sobel_util(short int* img, int height, int width, short int* magnitude, short int* angle){
-    int size = height * width;
-
     int blk_x = blockIdx.x;
     int blk_y = blockIdx.y;
 
@@ -133,7 +131,7 @@ __global__ void sobel_util(short int* img, int height, int width, short int* mag
             // Fill in outer border
             // left/right border
             if(blk_x == 0){
-                img_shared[thrd_y+1][thrd_x] = -1;
+                img_shared[thrd_y+1][thrd_x] = img[img_pos];
             }else{
                 img_shared[thrd_y+1][thrd_x] = img[img_pos - 1];
             }
@@ -145,7 +143,7 @@ __global__ void sobel_util(short int* img, int height, int width, short int* mag
             
             // top/bottom border
             if(blk_y == 0){
-                img_shared[thrd_y][thrd_x+1] = -1;
+                img_shared[thrd_y][thrd_x+1] = img[img_pos];
             }else{
                 img_shared[thrd_y][thrd_x+1] = img[img_pos - width];
             }
@@ -157,25 +155,25 @@ __global__ void sobel_util(short int* img, int height, int width, short int* mag
             
             // corners
             if(blk_x == 0 and blk_y == 0){
-                img_shared[thrd_y][thrd_x] = -1;
+                img_shared[thrd_y][thrd_x] = img[img_pos];
             }else{
                 img_shared[thrd_y][thrd_x] = img[img_pos - 1 - width];
             }
 
             if(blk_x == 0 and blk_y == ((height/BLOCK_SIZE)-1)){
-                img_shared[thrd_y+2][thrd_x] = -1;
+                img_shared[thrd_y+2][thrd_x] = img[img_pos];
             }else{
                 img_shared[thrd_y+2][thrd_x] = img[img_pos -1 + width];
             }
 
             if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == 0){
-                img_shared[thrd_y][thrd_x+2] = -1;
+                img_shared[thrd_y][thrd_x+2] = img[img_pos];
             }else{
                 img_shared[thrd_y][thrd_x+2] = img[img_pos +1 - width];
             }
 
             if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == ((height/BLOCK_SIZE)-1)){
-                img_shared[thrd_y+2][thrd_x+2] = -1;
+                img_shared[thrd_y+2][thrd_x+2] = img[img_pos];
             }else{
                 img_shared[thrd_y+2][thrd_x+2] = img[img_pos +1 + width];
             }
