@@ -32,7 +32,6 @@ void createGaussianKernel(float*& kernel , float sigma, int window){
 __global__ void gaussian_util(unsigned char* img, float sigma, int window, int height, int width, float* kernel, float* temp_img, short int* result){
     int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-  
     int stride_x = blockDim.x * gridDim.x;
     int stride_y = blockDim.y * gridDim.y;
     
@@ -53,6 +52,7 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
             temp_img[idx] = (sum/count);
         }
     }
+
     __syncthreads();
 
     // Blur in the y direction
@@ -72,33 +72,33 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
     }
 }
 
-void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result_host){
-    unsigned char* img_device;
-    float* temp_device; 
+void cuda_gaussian(unsigned char*& img_h, float sigma, int height, int width, short int*& result_h){
+    unsigned char* img_d;
+    float* temp_d; 
     int window = 1 + 2 * ceil(3 * sigma);
-    float* kernel;
-    short int* result_device;
-    result_host = new short int[rows*columns];
+    float* kernel_g;
+    short int* result_d;
+    result_h = new short int[height*width];
     
-    cudaMalloc(&img_device, rows*columns*sizeof(unsigned char));
-    cudaMalloc(&temp_device, rows*columns*sizeof(float));
-    cudaMalloc(&result_device, rows*columns*sizeof(short int));
-    cudaMallocManaged(&kernel, window * sizeof(float));
+    cudaMalloc(&img_d, height*width*sizeof(unsigned char));
+    cudaMalloc(&temp_d, height*width*sizeof(float));
+    cudaMalloc(&result_d, height*width*sizeof(short int));
+    cudaMallocManaged(&kernel_g, window * sizeof(float));
 
-    createGaussianKernel(kernel, sigma, window);
+    createGaussianKernel(kernel_g, sigma, window);
 
-    cudaMemcpy(img_device, img, rows*columns*sizeof(unsigned char), cudaMemcpyHostToDevice);
+    cudaMemcpy(img_d, img_h, height*width*sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    gaussian_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(img_device, sigma, window, rows, columns, kernel, temp_device, result_device);
+    gaussian_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(img_d, sigma, window, height, width, kernel_g, temp_d, result_d);
 
     cudaDeviceSynchronize();
 
-    cudaMemcpy(result_host, result_device, rows*columns*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(result_h, result_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
 
-    cudaFree(img_device);
-    cudaFree(temp_device);
-    cudaFree(kernel);
-    cudaFree(result_device);
+    cudaFree(img_d);
+    cudaFree(temp_d);
+    cudaFree(result_d);
+    cudaFree(kernel_g);
 }
 
 __global__ void sobel_util(short int* img, int height, int width, short int* magnitude, short int* angle){
@@ -107,9 +107,6 @@ __global__ void sobel_util(short int* img, int height, int width, short int* mag
 
     int thrd_x = threadIdx.x;
     int thrd_y = threadIdx.y;
-
-    // int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    // int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
   
     int stride_x = gridDim.x;
     int stride_y = gridDim.y;
@@ -123,12 +120,14 @@ __global__ void sobel_util(short int* img, int height, int width, short int* mag
     
     for(int row = blk_y; row < height/BLOCK_SIZE; row += stride_y){
         for(int col = blk_x; col < width/BLOCK_SIZE; col += stride_x){
-            // Position relative to entire image
+            /********************************************************************************** 
+            * Tiling, copy the thread block's designated pixels to the GPU
+            **********************************************************************************/
             int img_pos = (((row * BLOCK_SIZE * width)+(thrd_y * width)) + ((col * BLOCK_SIZE) + thrd_x));
 
             img_shared[thrd_y+1][thrd_x+1] = img[img_pos];
 
-            // Fill in outer border
+            // Fill in outer border for kernel calculation on edge pixels
             // left/right border
             if(blk_x == 0){
                 img_shared[thrd_y+1][thrd_x] = img[img_pos];
@@ -180,6 +179,9 @@ __global__ void sobel_util(short int* img, int height, int width, short int* mag
 
             __syncthreads();
 
+            /********************************************************************************** 
+            * Sobel filter calculation
+            **********************************************************************************/
             grad_x[thrd_y][thrd_x] = (2 * img_shared[thrd_y+1][thrd_x+2]) - (2 * img_shared[thrd_y+1][thrd_x]);
             grad_x[thrd_y][thrd_x] += img_shared[thrd_y+2][thrd_x+2] - img_shared[thrd_y+2][thrd_x];
             grad_x[thrd_y][thrd_x] += img_shared[thrd_y][thrd_x+2] - img_shared[thrd_y][thrd_x];
@@ -209,43 +211,38 @@ __global__ void sobel_util(short int* img, int height, int width, short int* mag
             else{
                 angle[img_pos] = 0;
             }
+
+            __syncthreads();
         }
     }
 }
 
-void cuda_sobel(short int*& img_host, int height, int width, short int*& magnitude_host, short int*& angle_host){
-    short int* img_device;
-    short int* grad_x_device;
-    short int* grad_y_device;
-    short int* magnitude_device;
-    short int* angle_device;
+void cuda_sobel(short int*& img_h, int height, int width, short int*& magnitude_h, short int*& angle_h){
+    short int* img_d;
+    short int* magnitude_d;
+    short int* angle_d;
 
-    magnitude_host = new short int[height*width];
-    angle_host = new short int[height*width];
+    magnitude_h = new short int[height*width];
+    angle_h = new short int[height*width];
 
-    cudaMalloc(&img_device, height*width*sizeof(short int));
-    cudaMemcpy(img_device, img_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+    cudaMalloc(&img_d, height*width*sizeof(short int));
+    cudaMemcpy(img_d, img_h, height*width*sizeof(short int), cudaMemcpyHostToDevice);
 
-    cudaMalloc(&grad_x_device, height*width*sizeof(short int));
-    cudaMalloc(&grad_y_device, height*width*sizeof(short int));
-    cudaMalloc(&magnitude_device, height*width*sizeof(short int));
-    cudaMalloc(&angle_device, height*width*sizeof(short int));
+    cudaMalloc(&magnitude_d, height*width*sizeof(short int));
+    cudaMalloc(&angle_d, height*width*sizeof(short int));
 
     dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
     dim3 dimGrid(width/dimBlock.x, height/dimBlock.y);
-    sobel_util<<<dimGrid,dimBlock>>>(img_device, height, width, magnitude_device, angle_device);
+    sobel_util<<<dimGrid,dimBlock>>>(img_d, height, width, magnitude_d, angle_d);
     
     cudaDeviceSynchronize();
 
-    cudaMemcpy(magnitude_host, magnitude_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(angle_host, angle_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(magnitude_h, magnitude_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(angle_h, angle_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
 
-    cudaFree(angle_device);
-    cudaFree(magnitude_device);
-    cudaFree(grad_x_device);
-    cudaFree(grad_y_device);
-    cudaFree(img_device);
-    delete[] img_host;
+    cudaFree(angle_d);
+    cudaFree(magnitude_d);
+    cudaFree(img_d);
 }
 
 
@@ -264,6 +261,9 @@ __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int h
 
     for(int row = blk_y; row < height/BLOCK_SIZE; row += stride_y){
         for(int col = blk_x; col < width/BLOCK_SIZE; col += stride_x){
+            /********************************************************************************** 
+            * Tiling, copy the thread block's designated pixels to the GPU
+            **********************************************************************************/
             // Position relative to entire image
             int img_pos = (((row * BLOCK_SIZE * width)+(thrd_y * width)) + ((col * BLOCK_SIZE) + thrd_x));
 
@@ -319,6 +319,9 @@ __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int h
 
             __syncthreads();
 
+            /********************************************************************************** 
+            * Perform nonmaximal suppression on pixels
+            **********************************************************************************/
             bool max = true;
 
             if(angle[img_pos] == 0){
@@ -360,35 +363,33 @@ __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int h
 }
 
 
-void cuda_nonmaixmal_suppression(short int*& magnitude_host, short int*& angle_host, int height, int width, short int*& result_host){
-    short int* magnitude_device;
-    short int* angle_device;
-    short int* result_device;
-    result_host = new short int[height*width];
+void cuda_nonmaixmal_suppression(short int*& magnitude_h, short int*& angle_h, int height, int width, short int*& result_h){
+    short int* magnitude_d;
+    short int* angle_d;
+    short int* result_d;
+    result_h = new short int[height*width];
 
-    cudaMalloc(&magnitude_device, height*width*sizeof(short int));
-    cudaMalloc(&angle_device, height*width*sizeof(short int));
-    cudaMalloc(&result_device, height*width*sizeof(short int));
+    cudaMalloc(&magnitude_d, height*width*sizeof(short int));
+    cudaMalloc(&angle_d, height*width*sizeof(short int));
+    cudaMalloc(&result_d, height*width*sizeof(short int));
 
-    cudaMemcpy(magnitude_device, magnitude_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
-    cudaMemcpy(angle_device, angle_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+    cudaMemcpy(magnitude_d, magnitude_h, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+    cudaMemcpy(angle_d, angle_h, height*width*sizeof(short int), cudaMemcpyHostToDevice);
 
     dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
     dim3 dimGrid(width/dimBlock.x, height/dimBlock.y);
-    nonmaximal_utility<<<dimGrid,dimBlock>>>(magnitude_device,angle_device,height,width,result_device);
+    nonmaximal_utility<<<dimGrid,dimBlock>>>(magnitude_d,angle_d,height,width,result_d);
 
     cudaDeviceSynchronize();
 
-    cudaMemcpy(result_host, result_device, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(result_h, result_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
 
-    cudaFree(result_device);
-    cudaFree(magnitude_device);
-    cudaFree(angle_device);
-    delete[] magnitude_host;
-    delete[] angle_host;
+    cudaFree(result_d);
+    cudaFree(magnitude_d);
+    cudaFree(angle_d);
 }
 
-void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps){
+void cuda_canny(unsigned char* img, float sigma, int min_val, int max_val, int height, int width, bool steps){
     short int* smoothed_img;    // Image blurred by a Gaussian filter
     short int* magnitude;       // Magnitude of edges, calculated as sqrt(grad_x^2 + grad_y^2)
     short int* angle;           // Angle/direction of edges, calculated as arctan2(grad_y, grad_x)
@@ -397,10 +398,10 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     cuda_gaussian(img,sigma,height,width,smoothed_img);
 
     if(steps){
-        Mat gaussianMat(height,width, CV_16S, smoothed_img);
+        Mat gaussian_mat(height,width, CV_16S, smoothed_img);
         Mat gaussian_display;
 
-        normalize(gaussianMat, gaussian_display, 0, 255, NORM_MINMAX);
+        normalize(gaussian_mat, gaussian_display, 0, 255, NORM_MINMAX);
         gaussian_display.convertTo(gaussian_display, CV_8U);
 
         imshow("CudaGaussian Visual Test", gaussian_display);
@@ -432,7 +433,7 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
         waitKey(0);
     }
 
-    hysteresis(nonmaximal, height, width, minVal, maxVal);
+    hysteresis(nonmaximal, height, width, min_val, max_val);
 
     // Display final image with canny edge detection applied to it
     Mat finalMat(height,width, CV_16S, nonmaximal);
@@ -442,6 +443,9 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     imshow("Final Image", final_display);
     waitKey(0);
 
+    delete[] smoothed_img;
     delete[] nonmaximal;
+    delete[] magnitude;
+    delete[] angle;
 }
     

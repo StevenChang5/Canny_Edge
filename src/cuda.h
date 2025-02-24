@@ -1,14 +1,12 @@
 #ifndef CUDA_H
 #define CUDA_H
 
-void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result);
+void cuda_gaussian(unsigned char*& img_h, float sigma, int height, int width, short int*& result_h);
 
-void cuda_calculate_xy_gradient(short int*& img, int height, int width, short int*& grad_x, short int*& grad_y);
+void cuda_sobel(short int*& img_h, int height, int width, short int*& magnitude_h, short int*& angle_h);
 
-void cuda_sobel_operator(short int*& grad_x, short int*& grad_y, int height, int width, short int*& magnitude, short int*& angle);
+void cuda_nonmaixmal_suppression(short int*& magnitude_h, short int*& angle_h, int height, int width, short int*& result_h);
 
-void cuda_nonmaixmal_suppression(short int*& magnitude, short int*& angle, int height, int width, short int*& result);
-
-void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps);
+void cuda_canny(unsigned char* img, float sigma, int min_val, int max_val, int height, int width, bool steps);
 
 #endif
