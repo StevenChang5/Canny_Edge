@@ -6,8 +6,8 @@
 #include <chrono>
 #include <iostream>
 
-#define NUM_BLOCKS 10
-#define BLOCK_SIZE 16
+#define NUM_BLOCKS 20
+#define BLOCK_SIZE 32
 
 using namespace cv;
 using namespace std;
