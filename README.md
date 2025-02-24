@@ -55,13 +55,13 @@ The initial experiments involved using basic features from CUDA. Global memory w
 </p>
 
 ### Improved Memory Allocation
-To improve the performance when copying data from the CPU to the GPU, the next experiment replaced cudaMallocManaged() with cudaMalloc(). A minor speedup was observed in functions. This experiment was done with 3 thread blocks, with 512 threads each. 
+To improve the performance when copying data from the CPU to the GPU, the next experiment replaced cudaMallocManaged() with cudaMalloc(). A minor speedup was observed in functions. Interestingly, the sobel() function was the exception with a slowdown in performance. This experiment was done with 3 thread blocks, with 512 threads each. 
 
 <p align="center">
     <img src="figures/memcpy.png" alt="Improved Memory Allocation" width="540"/>
 </p>
 
-## Tiling
+### Tiling
 The last experiment was to implement tiling to improve performance. Tiling involves using shared memory, which is significantly faster for thread blocks to access versus global memory. Shared memory is shared by each thread within a thread block. To perform tiling, each thread block is responsible for a portion of the image. The section of the image is saved to shared memory, and threads access the shared memory to peform the necessary calculations. The benefits of shared memory compound when functions have calculations that require repeated access to the same image pixel. Note that the image must be broken up into tiles due to shared memory typically being very small. This experiment was done with 20 thread blocks, with 32 threads each. 
 
 In order to implement tiling, the xy_gradient() and sobel() functions were combined into a single function. Tiling was then applied to the sobel() and nonmaximal() functions. The result of this was an extreme drop in running time for these functions. Despite using less than half the total number of threads, the speedup from using shared memory was far more significant than just utilizing more threads to process more pixels at a time. 
