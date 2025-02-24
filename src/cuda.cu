@@ -6,16 +6,11 @@
 #include <chrono>
 #include <iostream>
 
+#define NUM_BLOCKS 20
+#define BLOCK_SIZE 32
+
 using namespace cv;
 using namespace std;
-
-void allocate_memory(short int*& pointer, int height, int width){
-    cudaMallocManaged(&pointer, height*width*sizeof(short int));
-}
-
-void clear_memory(short int*& pointer){
-    cudaFree(pointer);
-}
 
 void createGaussianKernel(float*& kernel , float sigma, int window){
     int center = (window)/2;
@@ -37,7 +32,6 @@ void createGaussianKernel(float*& kernel , float sigma, int window){
 __global__ void gaussian_util(unsigned char* img, float sigma, int window, int height, int width, float* kernel, float* temp_img, short int* result){
     int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-  
     int stride_x = blockDim.x * gridDim.x;
     int stride_y = blockDim.y * gridDim.y;
     
@@ -58,6 +52,7 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
             temp_img[idx] = (sum/count);
         }
     }
+
     __syncthreads();
 
     // Blur in the y direction
@@ -77,265 +72,325 @@ __global__ void gaussian_util(unsigned char* img, float sigma, int window, int h
     }
 }
 
-void cuda_gaussian(unsigned char*& img, float sigma, int rows, int columns, short int*& result){
-    unsigned char* shared_img;
-    float* temp_img; 
+void cuda_gaussian(unsigned char*& img_h, float sigma, int height, int width, short int*& result_h){
+    unsigned char* img_d;
+    float* temp_d; 
     int window = 1 + 2 * ceil(3 * sigma);
-    float* kernel;
+    float* kernel_g;
+    short int* result_d;
+    result_h = new short int[height*width];
     
-    cudaMallocManaged(&shared_img, rows*columns*sizeof(unsigned char));
-    cudaMallocManaged(&temp_img, rows*columns*sizeof(float));
-    cudaMallocManaged(&result, rows*columns*sizeof(short int));
-    cudaMallocManaged(&kernel, window * sizeof(float));
+    cudaMalloc(&img_d, height*width*sizeof(unsigned char));
+    cudaMalloc(&temp_d, height*width*sizeof(float));
+    cudaMalloc(&result_d, height*width*sizeof(short int));
+    cudaMallocManaged(&kernel_g, window * sizeof(float));
 
-    createGaussianKernel(kernel, sigma, window);
+    createGaussianKernel(kernel_g, sigma, window);
 
-    for(int i = 0; i < rows*columns; i++){
-        shared_img[i] = img[i];
-    }
+    cudaMemcpy(img_d, img_h, height*width*sizeof(unsigned char), cudaMemcpyHostToDevice);
 
-    gaussian_util<<<3,512>>>(shared_img, sigma, window, rows, columns, kernel, temp_img, result);
+    gaussian_util<<<NUM_BLOCKS,BLOCK_SIZE>>>(img_d, sigma, window, height, width, kernel_g, temp_d, result_d);
 
     cudaDeviceSynchronize();
 
-    cudaFree(shared_img);
-    cudaFree(temp_img);
-    cudaFree(kernel);
+    cudaMemcpy(result_h, result_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+
+    cudaFree(img_d);
+    cudaFree(temp_d);
+    cudaFree(result_d);
+    cudaFree(kernel_g);
 }
 
-__global__ void xy_utility(short int* img, int height, int width, short int* grad_x, short int* grad_y){
-    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+__global__ void sobel_util(short int* img, int height, int width, short int* magnitude, short int* angle){
+    int blk_x = blockIdx.x;
+    int blk_y = blockIdx.y;
+
+    int thrd_x = threadIdx.x;
+    int thrd_y = threadIdx.y;
   
-    int stride_x = blockDim.x * gridDim.x;
-    int stride_y = blockDim.y * gridDim.y;
+    int stride_x = gridDim.x;
+    int stride_y = gridDim.y;
+
+
+    __shared__ short int img_shared[BLOCK_SIZE+2][BLOCK_SIZE+2];
+
+    __shared__ short int grad_x[BLOCK_SIZE][BLOCK_SIZE];
+
+    __shared__ short int grad_y[BLOCK_SIZE][BLOCK_SIZE];
     
-    // Gradient in the x direction, filter in the form of:
-    // -1   0   1
-    // -2   0   2
-    // -1   0   1
-    for(int row = idx_y; row < height; row += stride_y){
-        for(int col = idx_x; col < width; col += stride_x){
-            int pos = row * width + col;
-            if(col == 0){
-                // Leftmost column, all rows; pad out of bounds with border values
-                grad_x[pos] = (2 * img[pos+1]) - (2 * img[pos]);
-                // include row above
-                if(row != height-1){
-                    grad_x[pos] += (img[pos+width+1] - img[pos+width]);
-                }
-                // include row below
-                if(row != 0){
-                    grad_x[pos] += (img[pos-width+1] - img[pos-width]);
-                }
-            }
-            else if(col == (width-1)){
-                // Rightmost column, all rows; pad out of bounds with border values
-                grad_x[pos] = (2 * img[pos]) - (2 * img[pos-1]);
-                // include row below
-                if(row != height-1){
-                    grad_x[pos] += (img[pos+width] - img[pos+width-1]);
-                }
-                // include row above
-                if(row != 0){
-                    grad_x[pos] += (img[pos-width] - img[pos-width-1]);
-                }
-            }
-            else{
-                grad_x[pos] = (2 * img[pos+1]) - (2 * img[pos-1]);
-                if(row != height-1){
-                    grad_x[pos] += (img[pos+width+1] - img[pos+width-1]);
-                }
-                if(row != 0){
-                    grad_x[pos] += (img[pos-width+1] - img[pos-width-1]);
-                }
-            }
-        }
-    }
+    for(int row = blk_y; row < height/BLOCK_SIZE; row += stride_y){
+        for(int col = blk_x; col < width/BLOCK_SIZE; col += stride_x){
+            /********************************************************************************** 
+            * Tiling, copy the thread block's designated pixels to the GPU
+            **********************************************************************************/
+            int img_pos = (((row * BLOCK_SIZE * width)+(thrd_y * width)) + ((col * BLOCK_SIZE) + thrd_x));
 
-    // Gradient in the y direction, filter in the form of:
-    //  1   2   1
-    //  0   0   0
-    // -1  -2  -1
-    for(int col = idx_x; col < width; col += stride_x){
-        for(int row = idx_y; row < height; row += stride_y){
-            int pos = row * width + col;
-            if(row == 0){
-                // Topmost row, all columns; pad out of bounds with border values
-                grad_y[pos] = (2 * img[pos+width]) - (2 * img[pos]);
-                if(col != width-1){
-                    grad_y[pos] += (img[pos+width+1]-img[pos+1]);
-                }
-                if(col != 0){
-                    grad_y[pos] += (img[pos+width-1]-img[pos-1]);
-                }
+            img_shared[thrd_y+1][thrd_x+1] = img[img_pos];
+
+            // Fill in outer border for kernel calculation on edge pixels
+            // left/right border
+            if(blk_x == 0){
+                img_shared[thrd_y+1][thrd_x] = img[img_pos];
+            }else{
+                img_shared[thrd_y+1][thrd_x] = img[img_pos - 1];
             }
-            else if(row == (height - 1)){
-                // Bottommost row, all columns; pad out of bounds with border values
-                grad_y[pos] = (2*img[pos]) - (2*img[pos-width]);
-                if(col != width-1){
-                    grad_y[pos] += (img[pos+1] - img[pos-width+1]);
-                }
-                if(col != 0){
-                    grad_y[pos] += (img[pos-1]-img[pos-width-1]);
-                }
+            if(blk_x == ((width/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+1][thrd_x+2] = -1;
+            }else{
+                img_shared[thrd_y+1][thrd_x+2] = img[img_pos+1];
             }
-            else{
-                // Middle, nonborder pixels
-                grad_y[pos] = (2*img[pos+width]) - (2*img[pos-width]);
-                if(col != width-1){
-                    grad_y[pos] += (img[pos+width+1]-img[pos-width+1]);
-                }
-                if(col != 0){
-                    grad_y[pos] += (img[pos+width-1]-img[pos-width-1]);
-                }
+            
+            // top/bottom border
+            if(blk_y == 0){
+                img_shared[thrd_y][thrd_x+1] = img[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x+1] = img[img_pos - width];
             }
-        }
-    }
-}
+            if(blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+1] = -1;
+            }else{
+                img_shared[thrd_y+2][thrd_x+1] = img[img_pos + width];
+            }
+            
+            // corners
+            if(blk_x == 0 and blk_y == 0){
+                img_shared[thrd_y][thrd_x] = img[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x] = img[img_pos - 1 - width];
+            }
 
-void cuda_calculate_xy_gradient(short int* img, int height, int width, short int*& grad_x, short int*& grad_y){
-    cudaMallocManaged(&grad_x, height*width*sizeof(short int));
-    cudaMallocManaged(&grad_y, height*width*sizeof(short int));
+            if(blk_x == 0 and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x] = img[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x] = img[img_pos -1 + width];
+            }
 
-    xy_utility<<<3,512>>>(img, height, width, grad_x, grad_y);
-    
-    cudaDeviceSynchronize();
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == 0){
+                img_shared[thrd_y][thrd_x+2] = img[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x+2] = img[img_pos +1 - width];
+            }
 
-    cudaFree(img);
-}
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+2] = img[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x+2] = img[img_pos +1 + width];
+            }
 
-__global__ void sobel_utility(short int* grad_x, short int* grad_y, int height, int width, short int* magnitude, short int* angle){
-    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-  
-    int stride_x = blockDim.x * gridDim.x;
-    int stride_y = blockDim.y * gridDim.y;
+            __syncthreads();
 
-    for(int col = idx_x; col < width; col += stride_x){
-        for(int row = idx_y; row < height; row += stride_y){
-            // Calculate magnitude of gradient at every pixel
-            int idx = row * width + col;
-            magnitude[idx] = (int)sqrtf((grad_x[idx] * grad_x[idx]) + (grad_y[idx] * grad_y[idx]));
+            /********************************************************************************** 
+            * Sobel filter calculation
+            **********************************************************************************/
+            grad_x[thrd_y][thrd_x] = (2 * img_shared[thrd_y+1][thrd_x+2]) - (2 * img_shared[thrd_y+1][thrd_x]);
+            grad_x[thrd_y][thrd_x] += img_shared[thrd_y+2][thrd_x+2] - img_shared[thrd_y+2][thrd_x];
+            grad_x[thrd_y][thrd_x] += img_shared[thrd_y][thrd_x+2] - img_shared[thrd_y][thrd_x];
+
+            grad_y[thrd_y][thrd_x] = (2 * img_shared[thrd_y][thrd_x+1]) - (2 * img_shared[thrd_y+2][thrd_x+1]);
+            grad_y[thrd_y][thrd_x] += img_shared[thrd_y][thrd_x+2] - img_shared[thrd_y+2][thrd_x+2];
+            grad_y[thrd_y][thrd_x] += img_shared[thrd_y][thrd_x] - img_shared[thrd_y+2][thrd_x];
+
+            magnitude[img_pos] = (short int)sqrtf((grad_x[thrd_y][thrd_x] * grad_x[thrd_y][thrd_x]) 
+                                                + (grad_y[thrd_y][thrd_x] * grad_y[thrd_y][thrd_x]));
 
             // Calculate angle of gradient at every pixel
-            float temp_angle = atan2((double)grad_y[idx],(double)grad_x[idx]);
+            float temp_angle = atan2((double)grad_y[thrd_y][thrd_x],(double)grad_x[thrd_y][thrd_x]);
             temp_angle *= (180/PI);
             if(temp_angle < 0){
                 temp_angle = 360 + temp_angle;
             }
             if((temp_angle >= 22.5 && temp_angle < 67.5) || (temp_angle >= 202.5 && temp_angle < 247.5)){
-                angle[idx] = 45;
+                angle[img_pos] = 45;
             }
             else if((temp_angle >= 112.5 && temp_angle < 157.5) || (temp_angle >= 292.5 && temp_angle < 337.5)){
-                angle[idx] = 135;
+                angle[img_pos] = 135;
             }
             else if((temp_angle >= 67.5 && temp_angle < 112.5) || (temp_angle >= 247.5 && temp_angle < 292.5)){
-                angle[idx] = 90;
+                angle[img_pos] = 90;
             }
             else{
-                angle[idx] = 0;
+                angle[img_pos] = 0;
             }
+
+            __syncthreads();
         }
     }
 }
 
-void cuda_sobel_operator(short int* grad_x, short int* grad_y, int height, int width, short int*& magnitude, short int*& angle){
-    cudaMallocManaged(&magnitude, height*width*sizeof(short int));
-    cudaMallocManaged(&angle, height*width*sizeof(short int));
+void cuda_sobel(short int*& img_h, int height, int width, short int*& magnitude_h, short int*& angle_h){
+    short int* img_d;
+    short int* magnitude_d;
+    short int* angle_d;
 
-    sobel_utility<<<3,512>>>(grad_x, grad_y, height, width, magnitude, angle);
+    magnitude_h = new short int[height*width];
+    angle_h = new short int[height*width];
 
+    cudaMalloc(&img_d, height*width*sizeof(short int));
+    cudaMemcpy(img_d, img_h, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&magnitude_d, height*width*sizeof(short int));
+    cudaMalloc(&angle_d, height*width*sizeof(short int));
+
+    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 dimGrid(width/dimBlock.x, height/dimBlock.y);
+    sobel_util<<<dimGrid,dimBlock>>>(img_d, height, width, magnitude_d, angle_d);
+    
     cudaDeviceSynchronize();
 
-    cudaFree(grad_x);
-    cudaFree(grad_y);
+    cudaMemcpy(magnitude_h, magnitude_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(angle_h, angle_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+
+    cudaFree(angle_d);
+    cudaFree(magnitude_d);
+    cudaFree(img_d);
 }
+
 
 __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int height, int width, short int* result){
-    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+    int blk_x = blockIdx.x;
+    int blk_y = blockIdx.y;
+
+    int thrd_x = threadIdx.x;
+    int thrd_y = threadIdx.y;
   
-    int stride_x = blockDim.x * gridDim.x;
-    int stride_y = blockDim.y * gridDim.y;
+    int stride_x = gridDim.x;
+    int stride_y = gridDim.y;
 
-    for(int col = idx_x; col < width; col += stride_x){
-        for(int row = idx_y; row < height; row += stride_y){
 
-            int idx = row * width + col;
+    __shared__ short int img_shared[BLOCK_SIZE+2][BLOCK_SIZE+2];
+
+    for(int row = blk_y; row < height/BLOCK_SIZE; row += stride_y){
+        for(int col = blk_x; col < width/BLOCK_SIZE; col += stride_x){
+            /********************************************************************************** 
+            * Tiling, copy the thread block's designated pixels to the GPU
+            **********************************************************************************/
+            // Position relative to entire image
+            int img_pos = (((row * BLOCK_SIZE * width)+(thrd_y * width)) + ((col * BLOCK_SIZE) + thrd_x));
+
+            // Fill in outer border
+            // left/right border
+            if(blk_x == 0){
+                img_shared[thrd_y+1][thrd_x] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+1][thrd_x] = magnitude[img_pos - 1];
+            }
+            if(blk_x == ((width/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+1][thrd_x+2] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+1][thrd_x+2] = magnitude[img_pos+1];
+            }
+            
+            // top/bottom border
+            if(blk_y == 0){
+                img_shared[thrd_y][thrd_x+1] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x+1] = magnitude[img_pos - width];
+            }
+            if(blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+1] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x+1] = magnitude[img_pos + width];
+            }
+            
+            // corners
+            if(blk_x == 0 and blk_y == 0){
+                img_shared[thrd_y][thrd_x] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x] = magnitude[img_pos - 1 - width];
+            }
+
+            if(blk_x == 0 and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x] = magnitude[img_pos -1 + width];
+            }
+
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == 0){
+                img_shared[thrd_y][thrd_x+2] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x+2] = magnitude[img_pos +1 - width];
+            }
+
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+2] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x+2] = magnitude[img_pos +1 + width];
+            }
+
+            __syncthreads();
+
+            /********************************************************************************** 
+            * Perform nonmaximal suppression on pixels
+            **********************************************************************************/
             bool max = true;
 
-            if(angle[idx] == 0){
-                int left = idx - 1;
-                int right = idx + 1;
-    
-                if((idx%width) > 0){
-                    if(magnitude[idx] <= magnitude[left]){max = false;}
-                }
-                if(idx%width < width-1){
-                    if(magnitude[idx] <= magnitude[right]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            if(angle[img_pos] == 0){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+1][thrd_x]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+1][thrd_x+2]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             }   
-            else if(angle[idx] == 45){
-                int upRight = idx + 1 - width;
-                int downLeft = idx - 1 + width;
-    
-                if((idx%width < width-1) && (idx - width >= 0)){
-                    if(magnitude[idx] <= magnitude[upRight]){max = false;}
-                }
-                if((idx%width > 0) && (idx + width < (height*width))){
-                    if(magnitude[idx] <= magnitude[downLeft]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            else if(angle[img_pos] == 45){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y][thrd_x+2]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+2][thrd_x]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             }
-            else if(angle[idx] == 90){
-                int up = idx - width;
-                int down = idx + width;
-    
-                if(idx - width >= 0){
-                    if(magnitude[idx] <= magnitude[up]){max = false;}
-                }
-                if(idx + width < (height*width)){
-                    if(magnitude[idx] <= magnitude[down]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            else if(angle[img_pos] == 90){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y][thrd_x+1]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+2][thrd_x+1]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             } 
-            else if(angle[idx] == 135){
-                int upLeft = idx - 1 - width;
-                int downRight = idx + 1 + width;
-    
-                if((idx%width > 0) && (idx - width >= 0)){
-                    if(magnitude[idx] <= magnitude[upLeft]){max = false;}
-                }
-                if((idx%width < width-1) && (idx + width < (height*width))){
-                    if(magnitude[idx] <= magnitude[downRight]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            else if(angle[img_pos] == 135){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y][thrd_x]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+2][thrd_x+2]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             }
+
+            __syncthreads();
         }
     }
 }
 
-void cuda_nonmaixmal_suppression(short int* magnitude, short int* angle, int height, int width, short int*& result){
-    cudaMallocManaged(&result, height*width*sizeof(short int));
 
-    nonmaximal_utility<<<3,512>>>(magnitude,angle,height,width,result);
+void cuda_nonmaixmal_suppression(short int*& magnitude_h, short int*& angle_h, int height, int width, short int*& result_h){
+    short int* magnitude_d;
+    short int* angle_d;
+    short int* result_d;
+    result_h = new short int[height*width];
+
+    cudaMalloc(&magnitude_d, height*width*sizeof(short int));
+    cudaMalloc(&angle_d, height*width*sizeof(short int));
+    cudaMalloc(&result_d, height*width*sizeof(short int));
+
+    cudaMemcpy(magnitude_d, magnitude_h, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+    cudaMemcpy(angle_d, angle_h, height*width*sizeof(short int), cudaMemcpyHostToDevice);
+
+    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 dimGrid(width/dimBlock.x, height/dimBlock.y);
+    nonmaximal_utility<<<dimGrid,dimBlock>>>(magnitude_d,angle_d,height,width,result_d);
 
     cudaDeviceSynchronize();
 
-    cudaFree(magnitude);
-    cudaFree(angle);
+    cudaMemcpy(result_h, result_d, height*width*sizeof(short int), cudaMemcpyDeviceToHost);
+
+    cudaFree(result_d);
+    cudaFree(magnitude_d);
+    cudaFree(angle_d);
 }
 
-void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int height, int width, bool steps){
+void cuda_canny(unsigned char* img, float sigma, int min_val, int max_val, int height, int width, bool steps){
     short int* smoothed_img;    // Image blurred by a Gaussian filter
-    short int* grad_x;
-    short int* grad_y;
     short int* magnitude;       // Magnitude of edges, calculated as sqrt(grad_x^2 + grad_y^2)
     short int* angle;           // Angle/direction of edges, calculated as arctan2(grad_y, grad_x)
     short int* nonmaximal;      // Edges w/ nonmaximal suppression applied to neighbors in angle direction
@@ -343,21 +398,17 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     cuda_gaussian(img,sigma,height,width,smoothed_img);
 
     if(steps){
-        Mat gaussianMat(height,width, CV_16S, smoothed_img);
+        Mat gaussian_mat(height,width, CV_16S, smoothed_img);
         Mat gaussian_display;
 
-        normalize(gaussianMat, gaussian_display, 0, 255, NORM_MINMAX);
+        normalize(gaussian_mat, gaussian_display, 0, 255, NORM_MINMAX);
         gaussian_display.convertTo(gaussian_display, CV_8U);
 
         imshow("CudaGaussian Visual Test", gaussian_display);
         waitKey(0);
     }
 
-    cuda_calculate_xy_gradient(smoothed_img, height, width, grad_x, grad_y);
-
-    
-    
-    cuda_sobel_operator(grad_x, grad_y, height, width, magnitude, angle);
+    cuda_sobel(smoothed_img, height, width, magnitude, angle);
 
     if(steps){
         Mat sobel_mat(height,width, CV_16S, magnitude);
@@ -382,7 +433,7 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
         waitKey(0);
     }
 
-    hysteresis(nonmaximal, height, width, minVal, maxVal);
+    hysteresis(nonmaximal, height, width, min_val, max_val);
 
     // Display final image with canny edge detection applied to it
     Mat finalMat(height,width, CV_16S, nonmaximal);
@@ -392,6 +443,9 @@ void cuda_canny(unsigned char* img, float sigma, int minVal, int maxVal, int hei
     imshow("Final Image", final_display);
     waitKey(0);
 
-    clear_memory(nonmaximal);
+    delete[] smoothed_img;
+    delete[] nonmaximal;
+    delete[] magnitude;
+    delete[] angle;
 }
     
