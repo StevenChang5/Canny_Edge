@@ -6,8 +6,8 @@
 #include <chrono>
 #include <iostream>
 
-#define NUM_BLOCKS 20
-#define BLOCK_SIZE 32
+#define NUM_BLOCKS 10
+#define BLOCK_SIZE 16
 
 using namespace cv;
 using namespace std;
@@ -250,73 +250,115 @@ void cuda_sobel(short int*& img_host, int height, int width, short int*& magnitu
 
 
 __global__ void nonmaximal_utility(short int* magnitude, short int* angle, int height, int width, short int* result){
-    int idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    int idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+    int blk_x = blockIdx.x;
+    int blk_y = blockIdx.y;
+
+    int thrd_x = threadIdx.x;
+    int thrd_y = threadIdx.y;
   
-    int stride_x = blockDim.x * gridDim.x;
-    int stride_y = blockDim.y * gridDim.y;
+    int stride_x = gridDim.x;
+    int stride_y = gridDim.y;
 
-    for(int col = idx_x; col < width; col += stride_x){
-        for(int row = idx_y; row < height; row += stride_y){
 
-            int idx = row * width + col;
+    __shared__ short int img_shared[BLOCK_SIZE+2][BLOCK_SIZE+2];
+
+    for(int row = blk_y; row < height/BLOCK_SIZE; row += stride_y){
+        for(int col = blk_x; col < width/BLOCK_SIZE; col += stride_x){
+            // Position relative to entire image
+            int img_pos = (((row * BLOCK_SIZE * width)+(thrd_y * width)) + ((col * BLOCK_SIZE) + thrd_x));
+
+            // Fill in outer border
+            // left/right border
+            if(blk_x == 0){
+                img_shared[thrd_y+1][thrd_x] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+1][thrd_x] = magnitude[img_pos - 1];
+            }
+            if(blk_x == ((width/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+1][thrd_x+2] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+1][thrd_x+2] = magnitude[img_pos+1];
+            }
+            
+            // top/bottom border
+            if(blk_y == 0){
+                img_shared[thrd_y][thrd_x+1] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x+1] = magnitude[img_pos - width];
+            }
+            if(blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+1] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x+1] = magnitude[img_pos + width];
+            }
+            
+            // corners
+            if(blk_x == 0 and blk_y == 0){
+                img_shared[thrd_y][thrd_x] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x] = magnitude[img_pos - 1 - width];
+            }
+
+            if(blk_x == 0 and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x] = magnitude[img_pos -1 + width];
+            }
+
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == 0){
+                img_shared[thrd_y][thrd_x+2] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y][thrd_x+2] = magnitude[img_pos +1 - width];
+            }
+
+            if(blk_x == ((width/BLOCK_SIZE)-1) and blk_y == ((height/BLOCK_SIZE)-1)){
+                img_shared[thrd_y+2][thrd_x+2] = magnitude[img_pos];
+            }else{
+                img_shared[thrd_y+2][thrd_x+2] = magnitude[img_pos +1 + width];
+            }
+
+            __syncthreads();
+
             bool max = true;
 
-            if(angle[idx] == 0){
-                int left = idx - 1;
-                int right = idx + 1;
-    
-                if((idx%width) > 0){
-                    if(magnitude[idx] <= magnitude[left]){max = false;}
-                }
-                if(idx%width < width-1){
-                    if(magnitude[idx] <= magnitude[right]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            if(angle[img_pos] == 0){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+1][thrd_x]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+1][thrd_x+2]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             }   
-            else if(angle[idx] == 45){
-                int upRight = idx + 1 - width;
-                int downLeft = idx - 1 + width;
-    
-                if((idx%width < width-1) && (idx - width >= 0)){
-                    if(magnitude[idx] <= magnitude[upRight]){max = false;}
-                }
-                if((idx%width > 0) && (idx + width < (height*width))){
-                    if(magnitude[idx] <= magnitude[downLeft]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            else if(angle[img_pos] == 45){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y][thrd_x+2]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+2][thrd_x]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             }
-            else if(angle[idx] == 90){
-                int up = idx - width;
-                int down = idx + width;
-    
-                if(idx - width >= 0){
-                    if(magnitude[idx] <= magnitude[up]){max = false;}
-                }
-                if(idx + width < (height*width)){
-                    if(magnitude[idx] <= magnitude[down]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            else if(angle[img_pos] == 90){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y][thrd_x+1]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+2][thrd_x+1]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             } 
-            else if(angle[idx] == 135){
-                int upLeft = idx - 1 - width;
-                int downRight = idx + 1 + width;
-    
-                if((idx%width > 0) && (idx - width >= 0)){
-                    if(magnitude[idx] <= magnitude[upLeft]){max = false;}
-                }
-                if((idx%width < width-1) && (idx + width < (height*width))){
-                    if(magnitude[idx] <= magnitude[downRight]){max = false;}
-                }
-                if(max){result[idx] = magnitude[idx];}
-                else{result[idx] = NOEDGE;}
+            else if(angle[img_pos] == 135){
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y][thrd_x]){
+                    max = false;}
+                if(img_shared[thrd_y+1][thrd_x+1] <= img_shared[thrd_y+2][thrd_x+2]){
+                    max = false;}
+                if(max){result[img_pos] = img_shared[thrd_y+1][thrd_x+1];}
+                else{result[img_pos] = NOEDGE;}
             }
+
+            __syncthreads();
         }
     }
 }
+
 
 void cuda_nonmaixmal_suppression(short int*& magnitude_host, short int*& angle_host, int height, int width, short int*& result_host){
     short int* magnitude_device;
@@ -331,7 +373,9 @@ void cuda_nonmaixmal_suppression(short int*& magnitude_host, short int*& angle_h
     cudaMemcpy(magnitude_device, magnitude_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
     cudaMemcpy(angle_device, angle_host, height*width*sizeof(short int), cudaMemcpyHostToDevice);
 
-    nonmaximal_utility<<<NUM_BLOCKS,BLOCK_SIZE>>>(magnitude_device,angle_device,height,width,result_device);
+    dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 dimGrid(width/dimBlock.x, height/dimBlock.y);
+    nonmaximal_utility<<<dimGrid,dimBlock>>>(magnitude_device,angle_device,height,width,result_device);
 
     cudaDeviceSynchronize();
 
